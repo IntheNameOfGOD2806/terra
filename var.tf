@@ -1,8 +1,8 @@
 variable "ami" {
   type = map(string)
   default = {
-    "master" = "ami-09dd2e08d601bff67"
-    "worker" = "ami-09dd2e08d601bff67"
+    "master" = "ami-00d8fc944fb171e29"
+    "worker" = "ami-00d8fc944fb171e29"
   }
 }
 
@@ -17,4 +17,8 @@ variable "instance_type" {
 variable "worker_count" {
   type = number
   default = 2
+}
+
+variable "region" {
+  default = "ap-southeast-1"
 }
