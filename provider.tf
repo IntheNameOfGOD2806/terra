@@ -9,5 +9,6 @@ terraform {
 
 provider "aws" {
   region  = var.region
-  profile = "default"
+#   deprecated from terraform 4.x
+#   profile = "default"
 }

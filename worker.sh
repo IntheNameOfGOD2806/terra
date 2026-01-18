@@ -66,17 +66,24 @@ sysctl net.bridge.bridge-nf-call-iptables net.bridge.bridge-nf-call-ip6tables ne
 modprobe br_netfilter
 sysctl -p /etc/sysctl.conf
 
-# Install kubectl, kubelet and kubeadm
+# Install kubectl, kubelet and kubeadm (FIXED for pkgs.k8s.io)
 echo "-------------Installing Kubectl, Kubelet and Kubeadm-------------"
-apt-get update && sudo apt-get install -y apt-transport-https curl
-curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+sudo apt-get update
+# Cài đặt các gói phụ thuộc cần thiết
+sudo apt-get install -y apt-transport-https ca-certificates curl gpg
 
-cat <<EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
-deb https://apt.kubernetes.io/ kubernetes-xenial main
-EOF
+# 1. Tạo thư mục keyring nếu chưa có (quan trọng cho Ubuntu mới)
+sudo mkdir -p -m 755 /etc/apt/keyrings
 
-apt update -y
-apt install -y kubelet kubeadm kubectl
+# 2. Tải Key GPG mới cho bản v1.29 (KHÔNG dùng key của Google nữa)
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+# 3. Thêm Repo v1.29 vào sources.list
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+
+# 4. Cài đặt
+sudo apt-get update
+sudo apt-get install -y kubelet kubeadm kubectl
 sudo apt-mark hold kubelet kubeadm kubectl
 
 echo "-------------Printing Kubeadm version-------------"

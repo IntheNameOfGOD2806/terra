@@ -51,8 +51,8 @@ echo "-------------Setting IPTables-------------"
 cat <<EOF | sudo tee /etc/modules-load.d/k8s.conf
 overlay
 br_netfilter
-
 EOF
+
 modprobe overlay
 modprobe br_netfilter
 cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
@@ -88,10 +88,15 @@ kubeadm config images pull
 echo "-------------Running kubeadm init-------------"
 kubeadm init
 
+echo "Waiting for API Server to stabilize..."
+sleep 60
+
 echo "-------------Copying Kubeconfig-------------"
-mkdir -p /root/.kube
-cp -iv /etc/kubernetes/admin.conf /root/.kube/config
-sudo chown $(id -u):$(id -g) /root/.kube/config
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+
 
 echo "-------------Exporting Kubeconfig-------------"
 export KUBECONFIG=/etc/kubernetes/admin.conf

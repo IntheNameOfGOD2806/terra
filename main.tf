@@ -3,12 +3,12 @@
 resource "aws_instance" "k8s_master" {
   ami           = var.ami["master"]
   instance_type = var.instance_type["master"]
+  subnet_id     = data.aws_subnet.dattran_subnet.id
   tags = {
     Name = "k8s_master"
   }
   key_name        = aws_key_pair.k8s.key_name
   security_groups = [aws_security_group.k8s_master.id]
-
   # 
   connection {
     type        = "ssh"
@@ -40,6 +40,7 @@ resource "aws_instance" "k8s_worker" {
   count         = var.worker_count
   ami           = var.ami["worker"]
   instance_type = var.instance_type["worker"]
+  subnet_id     = data.aws_subnet.dattran_subnet.id
   tags = {
     Name = "k8s_worker-${count.index}"
   }
