@@ -17,6 +17,13 @@ tar Cxzvf /usr/local containerd-1.7.4-linux-amd64.tar.gz
 wget https://raw.githubusercontent.com/containerd/containerd/main/containerd.service
 mkdir -p /usr/local/lib/systemd/system
 mv containerd.service /usr/local/lib/systemd/system/containerd.service
+
+# --- FIX: Generate default config and enable SystemdCgroup ---
+mkdir -p /etc/containerd
+containerd config default | tee /etc/containerd/config.toml
+sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml
+# -----------------------------------------------------------
+
 systemctl daemon-reload
 systemctl enable --now containerd
 
@@ -33,12 +40,12 @@ tar Cxzvf /opt/cni/bin cni-plugins-linux-amd64-v1.2.0.tgz
 
 # Install CRICTL
 echo "-------------Installing CRICTL-------------"
-VERSION="v1.28.0" # check latest version in /releases page
+VERSION="v1.28.0"
 wget https://github.com/kubernetes-sigs/cri-tools/releases/download/$VERSION/crictl-$VERSION-linux-amd64.tar.gz
 tar zxvf crictl-$VERSION-linux-amd64.tar.gz -C /usr/local/bin
 rm -f crictl-$VERSION-linux-amd64.tar.gz
 
-cat <<EOF | sudo tee /etc/crictl.yaml
+cat <<EOF | tee /etc/crictl.yaml
 runtime-endpoint: unix:///run/containerd/containerd.sock
 image-endpoint: unix:///run/containerd/containerd.sock
 timeout: 2
@@ -48,14 +55,14 @@ EOF
 
 # Forwarding IPv4 and letting iptables see bridged traffic
 echo "-------------Setting IPTables-------------"
-cat <<EOF | sudo tee /etc/modules-load.d/k8s.conf
+cat <<EOF | tee /etc/modules-load.d/k8s.conf
 overlay
 br_netfilter
 EOF
 
 modprobe overlay
 modprobe br_netfilter
-cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
+cat <<EOF | tee /etc/sysctl.d/k8s.conf
 net.bridge.bridge-nf-call-iptables = 1
 net.bridge.bridge-nf-call-ip6tables = 1
 net.ipv4.ip_forward = 1
@@ -77,32 +84,37 @@ echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.
 
 apt-get update -y
 apt-get install -y kubelet kubeadm kubectl
-sudo apt-mark hold kubelet kubeadm kubectl
+apt-mark hold kubelet kubeadm kubectl
 
-echo "-------------Printing Kubeadm version-------------"
-kubeadm version
-
-echo "-------------Pulling Kueadm Images -------------"
+echo "-------------Pulling Kubeadm Images -------------"
 kubeadm config images pull
 
 echo "-------------Running kubeadm init-------------"
+# Initialize the cluster
 kubeadm init
 
-echo "Waiting for API Server to stabilize..."
-sleep 60
-
 echo "-------------Copying Kubeconfig-------------"
-mkdir -p $HOME/.kube
-sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-sudo chown $(id -u):$(id -g) $HOME/.kube/config
-
-
-
-echo "-------------Exporting Kubeconfig-------------"
+# 1. Setup for ROOT (so the script itself can run kubectl later)
 export KUBECONFIG=/etc/kubernetes/admin.conf
+mkdir -p /root/.kube
+cp -i /etc/kubernetes/admin.conf /root/.kube/config
+
+# 2. Setup for UBUNTU USER (so Ansible/SSH user can run kubectl)
+mkdir -p /home/ubuntu/.kube
+cp -i /etc/kubernetes/admin.conf /home/ubuntu/.kube/config
+chown ubuntu:ubuntu /home/ubuntu/.kube/config
+
+echo "Waiting for API Server to stabilize..."
+sleep 20
 
 echo "-------------Deploying Weavenet Pod Networking-------------"
+# Uses the exported KUBECONFIG from above
 kubectl apply -f https://github.com/weaveworks/weave/releases/download/v2.8.1/weave-daemonset-k8s.yaml
 
-echo "-------------Creating file with join command-------------"
-echo `kubeadm token create --print-join-command` > ./join-command.sh
+echo "-------------Creating join command file-------------"
+# Save the command to the ubuntu home directory and change ownership
+kubeadm token create --print-join-command > /home/ubuntu/join-command.sh
+chown ubuntu:ubuntu /home/ubuntu/join-command.sh
+chmod +x /home/ubuntu/join-command.sh
+
+echo "Master node setup complete!"

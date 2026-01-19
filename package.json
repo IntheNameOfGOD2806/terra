@@ -1,0 +1,24 @@
+{
+  "name": "terra",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/IntheNameOfGOD2806/terra#readme",
+  "bugs": {
+    "url": "https://github.com/IntheNameOfGOD2806/terra/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IntheNameOfGOD2806/terra.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "ansible": "ansible-playbook -i inventory.ini playbook1.yaml -K"
+  },
+  "dependencies": {
+    "ssh-remote-port-forward": "^1.0.4"
+  }
+}

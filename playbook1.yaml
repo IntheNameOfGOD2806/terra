@@ -1,0 +1,18 @@
+- name: Deploy trang web dau tien
+  hosts: local
+  become: yes
+  tasks:
+    - name: update package
+      apt:
+        update_cache: yes
+    - name: Cai dat Nginx
+      apt:
+        name: nginx
+        state: present
+    - name: Tao file index.html cho website
+      copy:
+        content: "<h1>Hello tu Ansible! Toi la Front End Dev</h1>"
+        dest: "/var/www/html/index.html"
+    - name: Thong bao hoan tat
+      debug:
+        msg: "File index.html da duoc tao tai thu muc hien tai!"
