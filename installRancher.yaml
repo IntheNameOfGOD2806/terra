@@ -1,0 +1,13 @@
+---
+- name: Install Rancher
+  hosts: k8s-master
+  # become: yes
+
+  tasks:
+    - name: Tao cay thu muc kubernetes/rancher/volume
+      file:
+        path: kubernetes/rancher/volume # Đường dẫn đích (Leaf node)
+        state: directory # Bảo Ansible: "Hãy đảm bảo đây là một thư mục"
+        mode: "0755" # (Optional) Set quyền: Chủ sở hữu full quyền, người khác chỉ đọc
+    - name: install rancher docker
+      ansible.builtin.command: docker run -d --name rancher-server  -v /home/ubuntu/volume:/var/lib/rancher --restart=unless-stopped -p 81:80 -p 444:443 --privileged rancher/rancher

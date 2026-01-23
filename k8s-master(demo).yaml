@@ -1,0 +1,239 @@
+---
+- name: Setup Kubernetes Master Node
+  hosts: all # Hoặc tên group trong inventory của bạn (vd: masters)
+  become: yes # Chạy với quyền root (sudo)
+
+  vars:
+    # Định nghĩa phiên bản ở đây để dễ quản lý/nâng cấp sau này
+    containerd_version: "1.7.4"
+    runc_version: "1.1.9"
+    cni_plugins_version: "1.2.0"
+    crictl_version: "v1.28.0"
+    k8s_version: "v1.29"
+    # User thường dùng để SSH và quản lý cụm (trong script gốc là ubuntu)
+    admin_user: "ubuntu"
+
+  tasks:
+    # -------------------------------------------------------
+    # 1. SYSTEM PREPARATION
+    # -------------------------------------------------------
+    - name: Set hostname
+      hostname:
+        name: "{{ inventory_hostname }}"
+
+    - name: Disable swap immediately
+      command: swapoff -a
+      when: ansible_swaptotal_mb > 0
+
+    - name: Remove swap from /etc/fstab (Persistently)
+      replace:
+        path: /etc/fstab
+        regexp: '^([^#].*?\sswap\s+sw\s+.*)$'
+        replace: '# \1'
+
+    - name: Load kernel modules for K8s (overlay, br_netfilter)
+      modprobe:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - overlay
+        - br_netfilter
+
+    - name: Persist kernel modules loading
+      copy:
+        dest: /etc/modules-load.d/k8s.conf
+        content: |
+          overlay
+          br_netfilter
+
+    - name: Apply sysctl params for K8s networking
+      sysctl:
+        name: "{{ item.key }}"
+        value: "{{ item.value }}"
+        state: present
+        sysctl_file: /etc/sysctl.d/k8s.conf
+        reload: yes
+      loop:
+        - { key: "net.bridge.bridge-nf-call-iptables", value: "1" }
+        - { key: "net.bridge.bridge-nf-call-ip6tables", value: "1" }
+        - { key: "net.ipv4.ip_forward", value: "1" }
+
+    # -------------------------------------------------------
+    # 2. INSTALL CONTAINER RUNTIME (CONTAINERD & RUNC & CNI)
+    # -------------------------------------------------------
+    - name: Download and unpack Containerd
+      unarchive:
+        src: "https://github.com/containerd/containerd/releases/download/v{{ containerd_version }}/containerd-{{ containerd_version }}-linux-amd64.tar.gz"
+        dest: /usr/local
+        remote_src: yes
+
+    - name: Install Containerd systemd service
+      get_url:
+        url: https://raw.githubusercontent.com/containerd/containerd/main/containerd.service
+        dest: /usr/local/lib/systemd/system/containerd.service
+        mode: "0644"
+
+    - name: Generate default containerd config
+      shell: |
+        mkdir -p /etc/containerd
+        containerd config default > /etc/containerd/config.toml
+      args:
+        creates: /etc/containerd/config.toml
+
+    - name: Enable SystemdCgroup in containerd config
+      replace:
+        path: /etc/containerd/config.toml
+        regexp: "SystemdCgroup = false"
+        replace: "SystemdCgroup = true"
+      notify: Restart containerd
+
+    - name: Install Runc
+      get_url:
+        url: "https://github.com/opencontainers/runc/releases/download/v{{ runc_version }}/runc.amd64"
+        dest: /usr/local/sbin/runc
+        mode: "0755"
+
+    - name: Install CNI Plugins
+      unarchive:
+        src: "https://github.com/containernetworking/plugins/releases/download/v{{ cni_plugins_version }}/cni-plugins-linux-amd64-v{{ cni_plugins_version }}.tgz"
+        dest: /opt/cni/bin
+        remote_src: yes
+        extra_opts:
+          - --directory=/opt/cni/bin # Cần tạo thư mục trước nếu unarchive không tự tạo, nhưng thường module này tự xử lý nếu dest tồn tại
+      pre_tasks:
+        - name: Create CNI bin directory
+          file:
+            path: /opt/cni/bin
+            state: directory
+
+    - name: Install CRICTL
+      unarchive:
+        src: "https://github.com/kubernetes-sigs/cri-tools/releases/download/{{ crictl_version }}/crictl-{{ crictl_version }}-linux-amd64.tar.gz"
+        dest: /usr/local/bin
+        remote_src: yes
+
+    - name: Configure crictl.yaml
+      copy:
+        dest: /etc/crictl.yaml
+        content: |
+          runtime-endpoint: unix:///run/containerd/containerd.sock
+          image-endpoint: unix:///run/containerd/containerd.sock
+          timeout: 2
+          debug: false
+          pull-image-on-create: false
+
+    # Đảm bảo containerd chạy trước khi cài K8s
+    - name: Enable and start Containerd
+      systemd:
+        name: containerd
+        state: started
+        enabled: yes
+        daemon_reload: yes
+
+    # -------------------------------------------------------
+    # 3. INSTALL KUBERNETES TOOLS (Kubeadm, Kubelet, Kubectl)
+    # -------------------------------------------------------
+    - name: Install required packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gpg
+        state: present
+        update_cache: yes
+
+    - name: Add Kubernetes GPG key (Old way but consistent with script logic)
+      shell: |
+        mkdir -p -m 755 /etc/apt/keyrings
+        curl -fsSL https://pkgs.k8s.io/core:/stable:/{{ k8s_version }}/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg --yes
+      args:
+        creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+    - name: Add Kubernetes APT repository
+      copy:
+        dest: /etc/apt/sources.list.d/kubernetes.list
+        content: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/{{ k8s_version }}/deb/ /"
+
+    - name: Install Kubelet, Kubeadm, Kubectl
+      apt:
+        name:
+          - kubelet
+          - kubeadm
+          - kubectl
+        state: present
+        update_cache: yes
+
+    - name: Hold Kubernetes packages
+      dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop:
+        - kubelet
+        - kubeadm
+        - kubectl
+
+    # -------------------------------------------------------
+    # 4. INITIALIZE CLUSTER (MASTER NODE ONLY)
+    # -------------------------------------------------------
+    - name: Pull Kubeadm images
+      command: kubeadm config images pull
+
+    - name: Initialize Kubernetes Cluster
+      command: kubeadm init
+      register: kubeadm_init_output
+      args:
+        creates: /etc/kubernetes/admin.conf # Quan trọng: Nếu file này đã có, ko chạy init nữa
+
+    - name: Create .kube directory for Root
+      file:
+        path: /root/.kube
+        state: directory
+
+    - name: Copy kubeconfig to Root
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /root/.kube/config
+        remote_src: yes
+
+    - name: Create .kube directory for Admin User ({{ admin_user }})
+      file:
+        path: "/home/{{ admin_user }}/.kube"
+        state: directory
+        owner: "{{ admin_user }}"
+        group: "{{ admin_user }}"
+
+    - name: Copy kubeconfig to Admin User
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: "/home/{{ admin_user }}/.kube/config"
+        remote_src: yes
+        owner: "{{ admin_user }}"
+        group: "{{ admin_user }}"
+
+    - name: Install Weave Net CNI
+      command: kubectl apply -f https://github.com/weaveworks/weave/releases/download/v2.8.1/weave-daemonset-k8s.yaml
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      # Chỉ chạy khi vừa init xong cụm mới
+      when: kubeadm_init_output.changed
+
+    - name: Generate and Save Join Command
+      shell: kubeadm token create --print-join-command > /home/{{ admin_user }}/join-command.sh
+      when: kubeadm_init_output.changed
+
+    - name: Set permission for join command file
+      file:
+        path: "/home/{{ admin_user }}/join-command.sh"
+        owner: "{{ admin_user }}"
+        group: "{{ admin_user }}"
+        mode: "0755"
+      when: kubeadm_init_output.changed
+
+  # Handlers: Chỉ chạy khi được "notify" (ví dụ config thay đổi thì mới restart service)
+  handlers:
+    - name: Restart containerd
+      systemd:
+        name: containerd
+        state: restarted
+        daemon_reload: yes

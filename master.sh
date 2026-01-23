@@ -90,8 +90,9 @@ echo "-------------Pulling Kubeadm Images -------------"
 kubeadm config images pull
 
 echo "-------------Running kubeadm init-------------"
-# Initialize the cluster
-kubeadm init
+# Initialize the cluster with WeaveNet as the pod network
+
+kubeadm init --pod-network-cidr=10.244.0.0/16
 
 echo "-------------Copying Kubeconfig-------------"
 # 1. Setup for ROOT (so the script itself can run kubectl later)
@@ -109,11 +110,12 @@ sleep 20
 
 echo "-------------Deploying Weavenet Pod Networking-------------"
 # Uses the exported KUBECONFIG from above
-kubectl apply -f https://github.com/weaveworks/weave/releases/download/v2.8.1/weave-daemonset-k8s.yaml
-
+kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
+# Deploy Ingress Nginx
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/baremetal/deploy.yaml
 echo "-------------Creating join command file-------------"
 # Save the command to the ubuntu home directory and change ownership
-kubeadm token create --print-join-command > /home/ubuntu/join-command.sh
+kubeadm token create --print-join-command | tee /home/ubuntu/join-command.sh
 chown ubuntu:ubuntu /home/ubuntu/join-command.sh
 chmod +x /home/ubuntu/join-command.sh
 

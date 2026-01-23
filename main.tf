@@ -3,7 +3,11 @@
 resource "aws_instance" "k8s_master" {
   ami           = var.ami["master"]
   instance_type = var.instance_type["master"]
-  subnet_id     = data.aws_subnet.dattran_subnet.id
+  root_block_device {
+    volume_size = 50
+    volume_type = "gp3"
+  }
+  subnet_id = data.aws_subnet.dattran_subnet.id
   tags = {
     Name = "k8s_master"
   }
@@ -13,13 +17,14 @@ resource "aws_instance" "k8s_master" {
   connection {
     type        = "ssh"
     user        = "ubuntu"
-    private_key = file("k8s")
+    private_key = file("k8s.pem")
     host        = self.public_ip
   }
   provisioner "file" {
     source      = "./master.sh"
     destination = "/home/ubuntu/master.sh"
   }
+
   provisioner "remote-exec" {
     inline = [
       "chmod +x /home/ubuntu/master.sh",
@@ -29,6 +34,15 @@ resource "aws_instance" "k8s_master" {
   provisioner "local-exec" {
     command = "ansible-playbook -i '${self.public_ip},' playbook.yaml"
   }
+  provisioner "local-exec" {
+    # install docker
+    command = "ansible-playbook -i '${self.public_ip},' installDocker.yaml"
+  }
+  provisioner "local-exec" {
+    # install rancher
+    command = "ansible-playbook -i '${self.public_ip},' installRancher.yaml"
+  }
+
 }
 
 
@@ -40,19 +54,22 @@ resource "aws_instance" "k8s_worker" {
   count         = var.worker_count
   ami           = var.ami["worker"]
   instance_type = var.instance_type["worker"]
-  subnet_id     = data.aws_subnet.dattran_subnet.id
+  root_block_device {
+    volume_size = 50
+    volume_type = "gp3"
+  }
+  subnet_id = data.aws_subnet.dattran_subnet.id
   tags = {
     Name = "k8s_worker-${count.index}"
   }
   key_name        = aws_key_pair.k8s.key_name
   security_groups = [aws_security_group.k8s_worker.id]
   depends_on      = [aws_instance.k8s_master]
-
   # 
   connection {
     type        = "ssh"
     user        = "ubuntu"
-    private_key = file("k8s")
+    private_key = file("k8s.pem")
     host        = self.public_ip
   }
   provisioner "file" {

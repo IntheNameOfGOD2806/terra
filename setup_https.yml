@@ -1,0 +1,70 @@
+---
+- name: Setup Nginx with Let's Encrypt SSL
+  hosts: webservers
+  become: yes
+  vars:
+    # KHAI BÁO BIẾN (Sửa thông tin của bạn tại đây)
+    domain_name: "yourdomain.com"
+    email_address: "youremail@example.com"
+
+  tasks:
+    # --- PHẦN 1: CÀI ĐẶT NGINX ---
+    - name: Cập nhật cache và cài đặt Nginx
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+
+    # Dùng template .j2 để tạo file cấu hình Nginx chuẩn chỉ
+    - name: Cập nhật cấu hình Nginx từ Template
+      template:
+        src: nginx.conf.j2
+        dest: /etc/nginx/sites-available/default
+      notify: Reload Nginx # Gọi handler để reload ngay khi file đổi
+
+    # --- PHẦN 2: CÀI ĐẶT CERTBOT (Theo chuẩn Snap) ---
+    - name: Gỡ cài đặt certbot cũ (nếu có)
+      apt:
+        name: certbot
+        state: absent
+
+    - name: Cài đặt Snapd
+      apt:
+        name: snapd
+        state: present
+
+    - name: Cài đặt Certbot qua Snap
+      command: snap install --classic certbot
+      register: snap_install_result
+      changed_when: "'installed' in snap_install_result.stdout"
+
+    - name: Tạo symbolic link cho certbot
+      file:
+        src: /snap/bin/certbot
+        dest: /usr/bin/certbot
+        state: link
+
+    # --- PHẦN 3: KÍCH HOẠT SSL ---
+    # Chỉ chạy lệnh này nếu chưa có chứng chỉ để đảm bảo tính Idempotency (không chạy lại nếu đã có)
+    - name: Kiểm tra chứng chỉ đã tồn tại chưa
+      stat:
+        path: /etc/letsencrypt/live/{{ domain_name }}/fullchain.pem
+      register: cert_files
+
+    - name: Lấy chứng chỉ SSL và tự động cấu hình Nginx
+      command: >
+        certbot --nginx
+        --non-interactive
+        --agree-tos
+        --email {{ email_address }}
+        -d {{ domain_name }}
+        -d www.{{ domain_name }}
+      when: not cert_files.stat.exists # Chỉ chạy khi chưa có chứng chỉ
+      notify: Reload Nginx
+
+  # --- HANDLERS (Chỉ chạy khi được gọi) ---
+  handlers:
+    - name: Reload Nginx
+      service:
+        name: nginx
+        state: reloaded

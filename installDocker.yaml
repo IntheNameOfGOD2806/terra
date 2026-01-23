@@ -1,0 +1,92 @@
+---
+- name: Install Docker Official (Ubuntu)
+  hosts: k8s-master
+  become: yes # Chạy với quyền sudo
+
+  vars:
+    # Định nghĩa các package cũ cần gỡ bỏ
+    old_packages:
+      - docker.io
+      - docker-compose
+      - docker-compose-v2
+      - docker-doc
+      - podman-docker
+      - containerd
+      - runc
+
+    # Định nghĩa các package mới cần cài
+    new_packages:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+
+    keyring_path: /etc/apt/keyrings/docker.asc
+    repo_file_path: /etc/apt/sources.list.d/docker.sources
+
+  tasks:
+    # 1. Gỡ bỏ các phiên bản Docker cũ (tương đương lệnh apt remove ...)
+    - name: Remove conflicting/old packages
+      apt:
+        name: "{{ old_packages }}"
+        state: absent
+        purge: yes
+
+    # 2. Cài đặt các gói phụ thuộc (tương đương apt install ca-certificates curl)
+    - name: Install prerequisites
+      apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+        state: present
+        update_cache: yes
+
+    # 3. Tạo thư mục keyrings (tương đương mkdir -p /etc/apt/keyrings)
+    - name: Create keyrings directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    # 4. Tải GPG Key (tương đương curl ... -o ...)
+    - name: Download Docker's official GPG key
+      get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: "{{ keyring_path }}"
+        mode: "0644" # Tương đương chmod a+r
+
+    # 5. Thêm Repository (tương đương lệnh tee ...)
+    # Sử dụng biến {{ ansible_distribution_release }} để tự động lấy codename (vd: jammy, noble)
+    - name: Add Docker repository to Apt sources
+      copy:
+        dest: "{{ repo_file_path }}"
+        content: |
+          Types: deb
+          URIs: https://download.docker.com/linux/ubuntu
+          Suites: {{ ansible_distribution_release }}
+          Components: stable
+          Signed-By: {{ keyring_path }}
+      register: repo_added
+
+    # 6. Cài đặt Docker (tương đương apt update && apt install ...)
+    - name: Install Docker packages
+      apt:
+        name: "{{ new_packages }}"
+        state: present
+        update_cache: yes # Tự động chạy apt update nếu bước trên có thay đổi
+
+    # 7. (Tùy chọn) Khởi động Docker Service
+    - name: Ensure Docker service is running and enabled
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    # 8. (Tùy chọn) Thêm user hiện tại vào nhóm docker để không cần gõ sudo khi chạy docker
+    - name: Add current user to docker group
+      user:
+        name: "{{ ansible_user | default(ansible_env.USER) }}"
+        groups: docker
+        append: yes

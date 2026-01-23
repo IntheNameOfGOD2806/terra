@@ -17,6 +17,13 @@ tar Cxzvf /usr/local containerd-1.7.4-linux-amd64.tar.gz
 wget https://raw.githubusercontent.com/containerd/containerd/main/containerd.service
 mkdir -p /usr/local/lib/systemd/system
 mv containerd.service /usr/local/lib/systemd/system/containerd.service
+
+# --- FIX: Generate default config and enable SystemdCgroup ---
+mkdir -p /etc/containerd
+containerd config default | tee /etc/containerd/config.toml
+sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml
+# -----------------------------------------------------------
+
 systemctl daemon-reload
 systemctl enable --now containerd
 

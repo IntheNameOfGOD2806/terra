@@ -1,1 +1,1 @@
-kubeadm join 10.0.1.117:6443 --token uarqjp.bmwk6az47y0kcxcm --discovery-token-ca-cert-hash sha256:3837f72bd393ad549c01ae3a8bbd326c35a28283591db5e5a8daa11619f9ca87 
+kubeadm join 10.0.1.81:6443 --token qi6xcd.mrz1i3i47t7uy186 --discovery-token-ca-cert-hash sha256:20d8618fb929ddd1e3545b2eb2e220a6b411b325de51b2c7a443fe773a2d9241 

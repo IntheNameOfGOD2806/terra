@@ -1,18 +1,22 @@
 - name: Deploy trang web dau tien
   hosts: local
   become: yes
+  vars:
+    my_name: "Tran Thanh Dat"
   tasks:
     - name: update package
       apt:
         update_cache: yes
+      ignore_errors: yes
     - name: Cai dat Nginx
       apt:
         name: nginx
-        state: present
+        state: absent
     - name: Tao file index.html cho website
-      copy:
-        content: "<h1>Hello tu Ansible! Toi la Front End Dev</h1>"
-        dest: "/var/www/html/index.html"
+      template:
+        src: index.html.j2
+        dest: /var/www/html/index.html
+        mode: "0644" # Set quyen file (optional)
     - name: Thong bao hoan tat
       debug:
         msg: "File index.html da duoc tao tai thu muc hien tai!"

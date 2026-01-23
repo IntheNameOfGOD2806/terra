@@ -16,9 +16,13 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "ansible": "ansible-playbook -i inventory.ini playbook1.yaml -K"
+    "ansible": "ansible-playbook -i inventory.ini playbook1.yaml -K",
+    "apply": "terraform apply",
+    "destroy": "terraform destroy",
+    "init": "terraform init",
+    "plan":"terraform plan"
   },
   "dependencies": {
-    "ssh-remote-port-forward": "^1.0.4"
+   
   }
 }
