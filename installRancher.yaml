@@ -1,7 +1,7 @@
 ---
 - name: Install Rancher
-  hosts: k8s-master
-  # become: yes
+  hosts: all
+  become: yes
 
   tasks:
     - name: Tao cay thu muc kubernetes/rancher/volume

@@ -1,6 +1,6 @@
 ---
 - name: Install Docker Official (Ubuntu)
-  hosts: k8s-master
+  hosts: all
   become: yes # Chạy với quyền sudo
 
   vars:
