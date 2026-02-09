@@ -60,6 +60,7 @@ resource "aws_vpc_security_group_ingress_rule" "rancher_81" {
   to_port     = 81
 }
 
+
 resource "aws_vpc_security_group_ingress_rule" "weavenet_udp" {
   security_group_id = aws_security_group.k8s_master.id
   cidr_ipv4         = "0.0.0.0/0"

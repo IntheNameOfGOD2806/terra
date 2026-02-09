@@ -1,22 +1,10 @@
-- hosts: ec2
-  name: run create join command and fetch join token file
+- hosts: all
+  name: fetch join token file
   gather_facts: false
-  # become: yes
+  become: yes
   tasks:
-    - name: run create join command
-      ansible.builtin.shell: kubeadm token create --print-join-command | tee /home/ubuntu/join-command.sh
-      register: join_command
-
-    - name: fetch join token file to local machine
+    - name: fetch join token file
       ansible.builtin.fetch:
         src: /home/ubuntu/join-command.sh
         dest: ./join-command.sh
         flat: yes
-
-    - name: provision join command file to k8s worker node
-      ansible.builtin.copy:
-        src: ./join-command.sh
-        dest: /home/ubuntu/join-command.sh
-        owner: ubuntu
-        group: ubuntu
-        mode: "0755"

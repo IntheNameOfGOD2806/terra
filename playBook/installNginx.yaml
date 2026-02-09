@@ -1,0 +1,26 @@
+---
+- name: Thiết lập Web Server
+  hosts: local # Nhắm vào nhóm 'webservers' trong inventory
+  become: yes # Tự động dùng 'sudo' (quan trọng!)
+  gather_facts: yes
+
+  tasks:
+    # Bước 1: Cài đặt Nginx
+    - name: Đảm bảo Nginx đã được cài đặt
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes # Tương đương apt-get update
+
+    # Bước 2: Đảm bảo Nginx đang chạy
+    - name: Đảm bảo Nginx đang chạy và khởi động cùng Windows
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    # Bước 3: (Thử cái này cho vui) Tạo file index.html
+    - name: Tạo file index custom
+      copy:
+        content: "<h1>Chao mung Front-end Dev den voi Ansible!</h1>"
+        dest: /var/www/html/index.html

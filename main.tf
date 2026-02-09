@@ -32,7 +32,7 @@ resource "aws_instance" "k8s_master" {
     ]
   }
   provisioner "local-exec" {
-    command = "ansible-playbook -i '${self.public_ip},' playbook.yaml"
+    command = "ansible-playbook -i '${self.public_ip},' getJoinCommandk8s.yaml"
   }
   provisioner "local-exec" {
     # install docker
@@ -55,7 +55,7 @@ resource "aws_instance" "k8s_worker" {
   ami           = var.ami["worker"]
   instance_type = var.instance_type["worker"]
   root_block_device {
-    volume_size = 50
+    volume_size = 20
     volume_type = "gp3"
   }
   subnet_id = data.aws_subnet.dattran_subnet.id

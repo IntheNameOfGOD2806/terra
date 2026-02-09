@@ -1,0 +1,8 @@
+- name: Install Cockpit
+  hosts: all
+  gather_facts: yes
+  become: yes
+
+  tasks:
+    - name: install Cockpit
+      shell: "apt install -t {{ ansible_distribution_release }}-backports cockpit -y"
