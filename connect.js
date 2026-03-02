@@ -1,8 +1,9 @@
-import { 
-  createSshConnection, 
-  SshConnection, 
-  ConnectConfig 
+import {
+  createSshConnection,
+  SshConnection,
+  ConnectConfig
 } from "ssh-remote-port-forward";
+
 
 const connectConfig = {
   host: "example",

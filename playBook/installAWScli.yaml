@@ -1,0 +1,36 @@
+---
+- name: Install AWS CLI v2
+  hosts: h2q-105
+  become: true
+  tasks:
+    - name: Install dependencies (unzip)
+      ansible.builtin.package:
+        name: unzip
+        state: present
+
+    - name: Download AWS CLI installer
+      ansible.builtin.get_url:
+        url: "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
+        dest: "/tmp/awscliv2.zip"
+        mode: '0644'
+
+    - name: Unarchive the installer
+      ansible.builtin.unarchive:
+        src: "/tmp/awscliv2.zip"
+        dest: "/tmp"
+        remote_src: yes
+
+    - name: Run the install script
+      ansible.builtin.command:
+        cmd: "./aws/install --update"
+        chdir: "/tmp"
+        creates: "/usr/local/bin/aws"
+
+    - name: Verify installation
+      ansible.builtin.command:
+        cmd: "aws --version"
+      register: aws_version
+
+    - name: Show AWS CLI version
+      ansible.builtin.debug:
+        msg: "Installed: {{ aws_version.stdout }}"

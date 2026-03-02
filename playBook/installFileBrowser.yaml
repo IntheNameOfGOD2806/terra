@@ -1,0 +1,38 @@
+---
+- name: Triển khai File Browser để quản lý toàn bộ hệ thống file
+  hosts: all
+  become: yes # Yêu cầu quyền root để mount / và cài đặt phần mềm
+
+  tasks:
+    - name: Cài đặt thư viện Python Docker (để Ansible điều khiển Docker)
+      apt:
+        name: python3-docker
+        state: present
+        update_cache: yes
+
+    - name: Tạo thư mục cấu hình File Browser
+      file:
+        path: /etc/filebrowser
+        state: directory
+        mode: "0755"
+
+    - name: Tạo file database rỗng (Fix lỗi Docker tự tạo thư mục khi mount file)
+      file:
+        path: /etc/filebrowser/filebrowser.db
+        state: touch
+        mode: "0664"
+
+    - name: Khởi chạy container File Browser
+      community.docker.docker_container:
+        name: sys-file-manager
+        image: filebrowser/filebrowser:latest
+        restart_policy: always
+        # Chạy bằng user root (0:0) để có quyền đọc/ghi vào thư mục / của máy chủ
+        user: "0:0"
+        ports:
+          - "8080:80"
+        volumes:
+          - "/:/srv" # Mount toàn bộ gốc hệ thống vào thư mục /srv của container
+          - "/etc/filebrowser/filebrowser.db:/database/filebrowser.db"
+        env:
+          FB_BASEURL: ""

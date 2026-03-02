@@ -1,5 +1,5 @@
 ---
-- name: Install Docker Official (Ubuntu)
+- name: Install Docker Official (Debian Bookworm)
   hosts: all
   become: yes # Chạy với quyền sudo
 
@@ -26,14 +26,39 @@
     repo_file_path: /etc/apt/sources.list.d/docker.sources
 
   tasks:
-    # 1. Gỡ bỏ các phiên bản Docker cũ (tương đương lệnh apt remove ...)
+    # BƯỚC QUAN TRỌNG: Xóa bỏ các cấu hình lỗi cũ để tránh treo apt update
+    - name: Clean up old incorrect Docker source files
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/apt/sources.list.d/docker.list
+        - "{{ repo_file_path }}" # Xóa file hiện tại để đảm bảo ghi mới hoàn toàn
+
+    # 1. Gỡ bỏ các phiên bản Docker cũ
     - name: Remove conflicting/old packages
       apt:
         name: "{{ old_packages }}"
         state: absent
         purge: yes
 
-    # 2. Cài đặt các gói phụ thuộc (tương đương apt install ca-certificates curl)
+    # 2. Cài đặt các gói phụ thuộc (Bây giờ apt update sẽ chạy mượt)
+    - name: Install prerequisites
+      apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+        state: present
+        update_cache: yes
+    # 1. Gỡ bỏ các phiên bản Docker cũ
+    - name: Remove conflicting/old packages
+      apt:
+        name: "{{ old_packages }}"
+        state: absent
+        purge: yes
+
+    # 2. Cài đặt các gói phụ thuộc
     - name: Install prerequisites
       apt:
         name:
@@ -43,49 +68,47 @@
         state: present
         update_cache: yes
 
-    # 3. Tạo thư mục keyrings (tương đương mkdir -p /etc/apt/keyrings)
+    # 3. Tạo thư mục keyrings
     - name: Create keyrings directory
       file:
         path: /etc/apt/keyrings
         state: directory
         mode: "0755"
 
-    # 4. Tải GPG Key (tương đương curl ... -o ...)
+    # 4. Tải GPG Key (Đã đổi URL sang debian)
     - name: Download Docker's official GPG key
       get_url:
-        url: https://download.docker.com/linux/ubuntu/gpg
+        url: https://download.docker.com/linux/debian/gpg
         dest: "{{ keyring_path }}"
-        mode: "0644" # Tương đương chmod a+r
+        mode: "0644"
 
-    # 5. Thêm Repository (tương đương lệnh tee ...)
-    # Sử dụng biến {{ ansible_distribution_release }} để tự động lấy codename (vd: jammy, noble)
+    # 5. Thêm Repository (Đã đổi URI sang debian)
     - name: Add Docker repository to Apt sources
       copy:
         dest: "{{ repo_file_path }}"
         content: |
           Types: deb
-          URIs: https://download.docker.com/linux/ubuntu
+          URIs: https://download.docker.com/linux/debian
           Suites: {{ ansible_distribution_release }}
           Components: stable
           Signed-By: {{ keyring_path }}
       register: repo_added
-      #
 
-    # 6. Cài đặt Docker (tương đương apt update && apt install ...)
+    # 6. Cài đặt Docker
     - name: Install Docker packages
       apt:
         name: "{{ new_packages }}"
         state: present
-        update_cache: yes # Tự động chạy apt update nếu bước trên có thay đổi
+        update_cache: yes
 
-    # 7. (Tùy chọn) Khởi động Docker Service
+    # 7. Khởi động Docker Service
     - name: Ensure Docker service is running and enabled
       service:
         name: docker
         state: started
         enabled: yes
 
-    # 8. (Tùy chọn) Thêm user hiện tại vào nhóm docker để không cần gõ sudo khi chạy docker
+    # 8. Thêm user hiện tại vào nhóm docker
     - name: Add current user to docker group
       user:
         name: "{{ ansible_user | default(ansible_env.USER) }}"

@@ -108,7 +108,7 @@ chown ubuntu:ubuntu /home/ubuntu/.kube/config
 echo "Waiting for API Server to stabilize..."
 sleep 20
 
-echo "-------------Deploying Weavenet Pod Networking-------------"
+echo "-------------Deploying Flannel Pod Networking-------------"
 # Uses the exported KUBECONFIG from above
 kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
 # Deploy Ingress Nginx

@@ -1,0 +1,50 @@
+
+- hosts: web-servers
+  become: yes
+  pre_tasks:
+    - name: install update(CentOS)
+      dnf:
+        update_cache: yes
+        update_only: yes
+      when: ansible_distribution in ["CentOS", "RedHat"]
+    - name: install update(Ubuntu)
+      apt:
+        update_cache: yes
+        upgrade: dist
+      when: ansible_distribution in ["Ubuntu", "Debian"]
+
+
+
+
+
+- hosts: web-servers
+  become: yes
+  tasks:
+    - name: install apache2 and php package
+      apt:
+        name:
+          - "{{apache_package}}"
+          - "{{php_package}}"
+        state: latest
+        update_cache: yes
+      when: ansible_distribution in ["Ubuntu", "Debian"]
+ 
+    - name: install httpd and php package
+      yum:
+        name:
+          - "{{apache_package}}"
+          - "{{php_package}}"
+        state: latest
+        update_cache: yes 
+      when: ansible_distribution in ["CentOS", "RedHat"]  
+
+
+- hosts: web-server
+  become: yes
+  tasks:
+    - name: install mariadb-server package
+      apt:
+        name: mariadb-server
+        state: latest
+        update_cache: yes
+      when: ansible_distribution in ["Ubuntu", "Debian"]
