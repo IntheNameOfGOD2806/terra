@@ -10,7 +10,7 @@ resource "aws_security_group" "k8s_nfs" {
 # allow all traffic from VPN security group
 resource "aws_vpc_security_group_ingress_rule" "allow_all_traffic_nfs_vpn" {
   security_group_id            = aws_security_group.k8s_nfs.id
-  referenced_security_group_id = aws_security_group.k8s_vpn.id
+  referenced_security_group_id = data.aws_security_group.k8s_vpn.id
   #cidr_ipv6         = "::/0"
   ip_protocol = "-1"
 }
@@ -62,6 +62,14 @@ resource "aws_vpc_security_group_ingress_rule" "SSH_nginx_lb" {
   from_port   = 22
   ip_protocol = "tcp"
   to_port     = 22
+}
+resource "aws_vpc_security_group_ingress_rule" "kube_api_6443" {
+  security_group_id = aws_security_group.k8s_nginx_lb.id
+  cidr_ipv4         = "0.0.0.0/0"
+  #cidr_ipv6         = "::/0"
+  from_port   = 6443
+  ip_protocol = "tcp"
+  to_port     = 6443
 }
 #allow 9991 of jenkins
 resource "aws_vpc_security_group_ingress_rule" "allow_jenkins" {

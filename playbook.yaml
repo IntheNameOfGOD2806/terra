@@ -8,3 +8,8 @@
         src: /home/ubuntu/join-command.sh
         dest: ./join-command.sh
         flat: yes
+    - name: fetch join token file for master
+      ansible.builtin.fetch:
+        src: /home/ubuntu/join-command-master.sh
+        dest: ./join-command-master.sh
+        flat: yes

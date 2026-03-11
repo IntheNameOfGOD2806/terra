@@ -1,8 +1,8 @@
-- name: Copy file cấu hình Nginx tĩnh
+- name: Copy file join-command-master.sh to master node
   ansible.builtin.copy:
-    src: ./nginx.conf # Đường dẫn file trên máy bạn
-    dest: /etc/nginx/nginx.conf # Đường dẫn trên Server
-    owner: root # Chủ sở hữu
-    group: root # Nhóm
-    mode: "0644" # Phân quyền (r--r--r--)
+    src: ./join-command-master.sh # Đường dẫn file trên máy bạn
+    dest: /home/ubuntu/join-command-master.sh # Đường dẫn trên Server
+    owner: ubuntu # Chủ sở hữu
+    group: ubuntu # Nhóm
+    mode: "0777" # Phân quyền (r--r--r--)
     backup: yes # Tự động tạo bản backup nếu file cũ đã tồn tại

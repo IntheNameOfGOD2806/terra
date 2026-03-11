@@ -1,0 +1,12 @@
+- name: Copy file join-command-master.sh to master node
+  hosts: all
+  become: yes
+  tasks:
+    - name: Copy file join-command-master.sh to master node
+      ansible.builtin.copy:
+        src: ./join-command-master.sh # Đường dẫn file trên máy bạn
+        dest: /home/ubuntu/join-command-master.sh # Đường dẫn trên Server
+        owner: ubuntu # Chủ sở hữu
+        group: ubuntu # Nhóm
+        mode: "0777" # Phân quyền (r--r--r--)
+        backup: yes # Tự động tạo bản backup nếu file cũ đã tồn tại

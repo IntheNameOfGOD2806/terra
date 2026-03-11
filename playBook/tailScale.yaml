@@ -1,0 +1,43 @@
+---
+- name: Cài đặt và cấu hình Tailscale
+  hosts: all
+  become: yes
+  vars:
+    tailscale_auth_key: "tskey-auth-koRdT2zbYJ11CNTRL-kZqRnQ292sTWr52W8R3prTQp1ecfjMEz"
+
+  tasks:
+    - name: Kiểm tra xem Tailscale đã cài chưa
+      ansible.builtin.command: which tailscale
+      register: tailscale_check
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Cài đặt Tailscale bằng script chính thức
+      ansible.builtin.shell: curl -fsSL https://tailscale.com/install.sh | sh
+      when: tailscale_check.rc != 0
+
+    - name: Đảm bảo dịch vụ Tailscale đang chạy
+      ansible.builtin.systemd:
+        name: tailscaled
+        state: started
+        enabled: yes
+
+    - name: Kết nối Tailscale với Auth Key
+      ansible.builtin.command:
+        cmd: "tailscale up --auth-key={{ tailscale_auth_key }}"
+      register: tailscale_up
+      # Dòng này cực kỳ quan trọng:
+      # Tránh báo lỗi nếu máy đã được authenticate từ trước
+      failed_when:
+        - tailscale_up.rc != 0
+        - "'already authenticated' not in tailscale_up.stderr"
+      changed_when: "'already authenticated' not in tailscale_up.stderr"
+
+    - name: Kiểm tra trạng thái Tailscale
+      ansible.builtin.command: tailscale status
+      register: ts_status
+      changed_when: false
+
+    - name: In kết quả trạng thái
+      ansible.builtin.debug:
+        msg: "{{ ts_status.stdout_lines[0] }}"

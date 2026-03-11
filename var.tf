@@ -20,11 +20,11 @@ variable "instance_type" {
 
 variable "worker_count" {
   type    = number
-  default = 2
+  default = 3
 }
 variable "nfs_count" {
   type    = number
-  default = 3
+  default = 2
 }
 
 variable "region" {

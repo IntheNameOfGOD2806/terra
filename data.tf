@@ -28,3 +28,11 @@ data "aws_subnet" "dattran_private_subnet" {
   }
   vpc_id = data.aws_vpc.dattran_vpc.id
 }
+
+data "aws_security_group" "k8s_vpn" {
+  filter {
+    name   = "tag:Name"
+    values = ["k8s-vpn-sg"]
+  }
+  vpc_id = data.aws_vpc.dattran_vpc.id
+}

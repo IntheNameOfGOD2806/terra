@@ -15,7 +15,9 @@
 
     - name: Cài đặt gói NGINX
       apt:
-        name: nginx
+        name:
+          - nginx
+          - libnginx-mod-stream
         state: present
 
     - name: Đảm bảo thư mục web root tồn tại
@@ -36,6 +38,10 @@
         name: nginx
         state: started
         enabled: yes
+    # - name: Ensure stream module is enabled
+    #   shell: |
+    #     ln -sf /usr/share/nginx/modules-available/mod-stream.conf /etc/nginx/modules-enabled/50-mod-stream.conf
+    #   notify: restart nginx
 
     - name: Kiểm tra trạng thái NGINX (Health Check)
       uri:

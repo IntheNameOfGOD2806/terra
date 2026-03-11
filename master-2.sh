@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 
+# --- BƯỚC 1: Vẫn cần cài Runtime (Copy y hệt đoạn đầu script của bạn) ---
+# (Cài Containerd, Runc, CNI, Kubeadm... đến đoạn apt-mark hold)
 # Set hostname
 echo "-------------Setting hostname-------------"
 hostnamectl set-hostname $1
-#set lb ip
-LB_IP=$2
 
 # Disable swap
 echo "-------------Disabling swap-------------"
@@ -87,63 +87,3 @@ echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.
 apt-get update -y
 apt-get install -y kubelet kubeadm kubectl
 apt-mark hold kubelet kubeadm kubectl
-
-echo "-------------Pulling Kubeadm Images -------------"
-kubeadm config images pull
-
-echo "-------------Running kubeadm init-------------"
-# Initialize the cluster with WeaveNet as the pod network
-
-kubeadm init --pod-network-cidr=10.244.0.0/16 \
-    --control-plane-endpoint="$LB_IP:6443"
-
-echo "-------------Copying Kubeconfig-------------"
-# 1. Setup for ROOT (so the script itself can run kubectl later)
-export KUBECONFIG=/etc/kubernetes/admin.conf
-mkdir -p /root/.kube
-cp -i /etc/kubernetes/admin.conf /root/.kube/config
-
-# 2. Setup for UBUNTU USER (so Ansible/SSH user can run kubectl)
-mkdir -p /home/ubuntu/.kube
-cp -i /etc/kubernetes/admin.conf /home/ubuntu/.kube/config
-chown ubuntu:ubuntu /home/ubuntu/.kube/config
-
-echo "Waiting for API Server to stabilize..."
-sleep 20
-
-echo "-------------Deploying Flannel Pod Networking-------------"
-# Uses the exported KUBECONFIG from above
-kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
-# Deploy Ingress Nginx
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/baremetal/deploy.yaml
-echo "-------------Creating join command file-------------"
-# Save the command to the ubuntu home directory and change ownership
-kubeadm token create --print-join-command | tee /home/ubuntu/join-command.sh
-chown ubuntu:ubuntu /home/ubuntu/join-command.sh
-chmod +x /home/ubuntu/join-command.sh
-
-echo "Master node setup complete!"
-
-# Install NFS server
-sudo apt install nfs-common -y
-
-# Upload certs for other master nodes
-echo "-------------Generating Join Command for Master Nodes-------------"
-
-# 1. Lấy Certificate Key (loại bỏ các dòng text thừa, chỉ lấy mã hash)
-CERT_KEY=$(sudo kubeadm init phase upload-certs --upload-certs | tail -n 1)
-
-# 2. Lấy lệnh join cơ bản
-JOIN_CMD=$(sudo kubeadm token create --print-join-command)
-
-# 3. Kết hợp lại thành lệnh join cho Control Plane
-# Thêm cờ --control-plane và --certificate-key
-FULL_MASTER_JOIN_CMD="$JOIN_CMD --control-plane --certificate-key $CERT_KEY"
-
-# 4. Lưu ra file để sau này dùng Ansible hoặc Copy tay cho dễ
-echo "$FULL_MASTER_JOIN_CMD" | tee /home/ubuntu/join-command-master.sh
-
-# Phân quyền cho user ubuntu
-chown ubuntu:ubuntu /home/ubuntu/join-command-master.sh
-chmod +x /home/ubuntu/join-command-master.sh
-
