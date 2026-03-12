@@ -1,8 +1,8 @@
 
 
-Repository này chứa mã nguồn để tự động hóa việc khởi tạo một cụm Kubernetes (HA) trên AWS EC2, kết hợp với Nginx Load Balancer, NFS Server và AWS Application Load Balancer.
+Repository này chứa mã nguồn để tự động hóa việc khởi tạo một cụm Kubernetes trên AWS EC2, kết hợp với Nginx Load Balancer, NFS Server và AWS Application Load Balancer.
 
-## 🏗️ Kiến Trúc Hệ Thống
+## Kiến Trúc Hệ Thống
 
 Cụm K8s bao gồm:
 
@@ -80,13 +80,8 @@ Hệ thống cũng hỗ trợ cài đặt sẵn:
 - **File Browser:** Quản lý file trên server qua web.
 - **Jenkins:** Công cụ CI/CD (cần uncomment trong `main.tf` nếu muốn cài đặt).
 
-## ⚠️ Lưu ý quan trọng
 
-- **Security Groups:** Mọi rule bảo mật đã được định nghĩa trong `security_groups.tf`. Hãy cẩn trọng khi mở rộng các port ra internet.
-- **Bastion Host:** Nginx LB node được sử dụng làm Bastion host để Terraform/Ansible có thể nhảy vào các node trong subnet riêng (private subnet).
-- **Scripts:** Các script `master.sh`, `worker.sh` chứa logic setup core của K8s. Đừng xóa chúng vì Terraform sẽ upload chúng lên các instance khi khởi tạo.
-
-## 🧹 Hủy tài nguyên
+##  Hủy tài nguyên
 
 Để xóa toàn bộ hạ tầng đã tạo nhằm tránh phát sinh chi phí:
 
