@@ -116,6 +116,8 @@ echo "-------------Deploying Flannel Pod Networking-------------"
 kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
 # Deploy Ingress Nginx
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/baremetal/deploy.yaml
+kubectl patch svc ingress-nginx-controller -n ingress-nginx -p '{"spec": {"type": "NodePort", "ports": [{"name": "http", "port": 80, "nodePort": 32222}, {"name": "https", "port": 443, "nodePort": 32223}]}}'
+
 echo "-------------Creating join command file-------------"
 # Save the command to the ubuntu home directory and change ownership
 kubeadm token create --print-join-command | tee /home/ubuntu/join-command.sh
@@ -147,3 +149,7 @@ echo "$FULL_MASTER_JOIN_CMD" | tee /home/ubuntu/join-command-master.sh
 chown ubuntu:ubuntu /home/ubuntu/join-command-master.sh
 chmod +x /home/ubuntu/join-command-master.sh
 
+#get nodeport of ingress-nginx
+# NODE_PORT=$(kubectl get svc -A | grep ingress-nginx | grep NodePort | awk '{split($6, a, "[:/]"); print a[2]}')
+# echo "$NODE_PORT" > /home/ubuntu/nodeport.txt
+# chown ubuntu:ubuntu /home/ubuntu/nodeport.txt

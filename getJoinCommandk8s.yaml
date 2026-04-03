@@ -13,3 +13,8 @@
         src: /home/ubuntu/join-command-master.sh
         dest: ./join-command-master.sh
         flat: yes
+    # - name: fetch nodeport of ingress-nginx
+    #   ansible.builtin.fetch:
+    #     src: /home/ubuntu/nodeport.txt
+    #     dest: ./nodeport.txt
+    #     flat: yes

@@ -63,6 +63,14 @@ resource "aws_vpc_security_group_ingress_rule" "SSH_nginx_lb" {
   ip_protocol = "tcp"
   to_port     = 22
 }
+resource "aws_vpc_security_group_ingress_rule" "nodePort" {
+  security_group_id = aws_security_group.k8s_nginx_lb.id
+  cidr_ipv4         = "0.0.0.0/0"
+  #cidr_ipv6         = "::/0"
+  from_port   = 30000
+  ip_protocol = "tcp"
+  to_port     = 32767
+}
 resource "aws_vpc_security_group_ingress_rule" "kube_api_6443" {
   security_group_id = aws_security_group.k8s_nginx_lb.id
   cidr_ipv4         = "0.0.0.0/0"
@@ -124,6 +132,7 @@ resource "aws_vpc_security_group_ingress_rule" "SSH" {
   ip_protocol = "tcp"
   to_port     = 22
 }
+
 resource "aws_vpc_security_group_ingress_rule" "Rancher_HTTPS" {
   security_group_id = aws_security_group.k8s_master.id
   cidr_ipv4         = "0.0.0.0/0"
@@ -166,6 +175,22 @@ resource "aws_vpc_security_group_ingress_rule" "weavenet_tcp" {
   from_port   = 6783
   ip_protocol = "tcp"
   to_port     = 6783
+}
+resource "aws_vpc_security_group_ingress_rule" "flannel_UDP_VXLAN" {
+  security_group_id = aws_security_group.k8s_master.id
+  cidr_ipv4         = "0.0.0.0/0"
+  #cidr_ipv6         = "::/0"
+  from_port   = 8472
+  ip_protocol = "udp"
+  to_port     = 8472
+}
+resource "aws_vpc_security_group_ingress_rule" "flannel_UDP_BE" {
+  security_group_id = aws_security_group.k8s_master.id
+  cidr_ipv4         = "0.0.0.0/0"
+  #cidr_ipv6         = "::/0"
+  from_port   = 8285
+  ip_protocol = "udp"
+  to_port     = 8285
 }
 # resource "aws_vpc_security_group_ingress_rule" "rancher_444" {
 #   security_group_id = aws_security_group.k8s_master.id
@@ -277,6 +302,22 @@ resource "aws_vpc_security_group_ingress_rule" "internal_traffic_worker" {
   from_port   = 0
   ip_protocol = "tcp"
   to_port     = 65535
+}
+resource "aws_vpc_security_group_ingress_rule" "flannel_UDP_VXLAN_worker" {
+  security_group_id = aws_security_group.k8s_worker.id
+  cidr_ipv4         = "0.0.0.0/0"
+  #cidr_ipv6         = "::/0"
+  from_port   = 8472
+  ip_protocol = "udp"
+  to_port     = 8472
+}
+resource "aws_vpc_security_group_ingress_rule" "flannel_UDP_BE_worker" {
+  security_group_id = aws_security_group.k8s_worker.id
+  cidr_ipv4         = "0.0.0.0/0"
+  #cidr_ipv6         = "::/0"
+  from_port   = 8285
+  ip_protocol = "udp"
+  to_port     = 8285
 }
 resource "aws_vpc_security_group_ingress_rule" "SSH_worker" {
   security_group_id = aws_security_group.k8s_worker.id

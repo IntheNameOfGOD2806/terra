@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>K8s AWS Infrastructure Diagram</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    :root {
+      --aws-orange: #FF9900;
+      --aws-dark: #232F3E;
+      --aws-blue: #1A73E8;
+      --aws-light-blue: #4FC3F7;
+      --aws-green: #2ECC71;
+      --aws-red: #E74C3C;
+      --aws-purple: #9B59B6;
+      --public-bg: rgba(255, 153, 0, 0.08);
+      --private-bg: rgba(26, 115, 232, 0.08);
+      --vpc-bg: rgba(35, 47, 62, 0.06);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #0d1117 0%, #161b27 50%, #0d1117 100%);
+      min-height: 100vh;
+      color: #e6edf3;
+      overflow-x: hidden;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      padding: 40px 20px 20px;
+      position: relative;
+    }
+    .header h1 {
+      font-size: 2.2rem;
+      font-weight: 700;
+      background: linear-gradient(90deg, #FF9900, #FFD700, #FF9900);
+      background-size: 200%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: shimmer 3s linear infinite;
+    }
+    .header p {
+      margin-top: 6px;
+      color: #8b949e;
+      font-size: 0.9rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    @keyframes shimmer { 0%,100%{background-position:0%} 50%{background-position:100%} }
+
+    /* ── Main Canvas ── */
+    .canvas {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px 24px 60px;
+    }
+
+    /* ── Internet Layer ── */
+    .internet-layer {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 30px;
+    }
+    .internet-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      animation: floatY 4s ease-in-out infinite;
+    }
+    @keyframes floatY { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+
+    /* ── VPC Container ── */
+    .vpc-box {
+      border: 2px solid rgba(255,153,0,0.35);
+      border-radius: 20px;
+      padding: 24px;
+      background: rgba(35,47,62,0.4);
+      backdrop-filter: blur(10px);
+      position: relative;
+      box-shadow: 0 0 40px rgba(255,153,0,0.08), inset 0 1px 0 rgba(255,255,255,0.05);
+      animation: glowVPC 5s ease-in-out infinite alternate;
+    }
+    @keyframes glowVPC {
+      from { box-shadow: 0 0 30px rgba(255,153,0,0.06); }
+      to   { box-shadow: 0 0 60px rgba(255,153,0,0.15); }
+    }
+    .vpc-label {
+      position: absolute;
+      top: -14px;
+      left: 24px;
+      background: #FF9900;
+      color: #0d1117;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 2px 12px;
+      border-radius: 20px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    /* ── Subnet Rows ── */
+    .subnet-row {
+      display: grid;
+      gap: 20px;
+    }
+    .subnet-public  { grid-template-columns: 1fr 1fr; }
+    .subnet-private { grid-template-columns: repeat(3, 1fr); }
+
+    .subnet-box {
+      border-radius: 14px;
+      padding: 18px;
+      position: relative;
+      border: 1.5px dashed;
+    }
+    .subnet-box.public  {
+      border-color: rgba(255,153,0,0.3);
+      background: var(--public-bg);
+    }
+    .subnet-box.private {
+      border-color: rgba(26,115,232,0.3);
+      background: var(--private-bg);
+    }
+    .subnet-title {
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .subnet-title .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+    .subnet-box.public  .subnet-title .dot { background: #FF9900; }
+    .subnet-box.private .subnet-title .dot { background: #4FC3F7; }
+
+    /* ── EC2 / Service Cards ── */
+    .node-card {
+      background: rgba(22, 27, 39, 0.85);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+      cursor: default;
+      position: relative;
+      overflow: hidden;
+    }
+    .node-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .node-card:hover {
+      transform: translateY(-3px) scale(1.01);
+      border-color: rgba(255,153,0,0.4);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 20px rgba(255,153,0,0.1);
+    }
+    .node-card .icon-wrap {
+      width: 44px; height: 44px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-size: 1.6rem;
+    }
+    .node-card .info { flex: 1; min-width: 0; }
+    .node-card .name {
+      font-weight: 600;
+      font-size: 0.85rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .node-card .type-label {
+      font-size: 0.68rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: #8b949e;
+      margin-top: 2px;
+    }
+    .node-card .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 6px;
+    }
+    .tag {
+      font-size: 0.6rem;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      animation: fadeIn 0.5s ease;
+    }
+    @keyframes fadeIn { from{opacity:0;transform:scale(0.8)} to{opacity:1;transform:scale(1)} }
+
+    /* Tag Colors */
+    .tag-docker   { background: rgba(0,150,255,0.15); color: #4FC3F7; border:1px solid rgba(0,150,255,0.25); }
+    .tag-nginx    { background: rgba(46,204,113,0.15); color: #2ECC71; border:1px solid rgba(46,204,113,0.25); }
+    .tag-k8s      { background: rgba(74,144,226,0.15); color: #74BDFF; border:1px solid rgba(74,144,226,0.25); }
+    .tag-rancher  { background: rgba(0,180,120,0.15); color: #00C27A; border:1px solid rgba(0,180,120,0.25); }
+    .tag-argocd   { background: rgba(255,120,90,0.15); color: #FF8A65; border:1px solid rgba(255,120,90,0.25); }
+    .tag-prom     { background: rgba(255,88,0,0.15); color: #FF8C00; border:1px solid rgba(255,88,0,0.25); }
+    .tag-grafana  { background: rgba(243,156,18,0.15); color: #F5A623; border:1px solid rgba(243,156,18,0.25); }
+    .tag-nfs      { background: rgba(155,89,182,0.15); color: #BB8FCE; border:1px solid rgba(155,89,182,0.25); }
+    .tag-alb      { background: rgba(255,153,0,0.15); color: #FF9900; border:1px solid rgba(255,153,0,0.25); }
+    .tag-ebs      { background: rgba(52,152,219,0.15); color: #7FB3D3; border:1px solid rgba(52,152,219,0.25); }
+    .tag-ha       { background: rgba(231,76,60,0.15); color: #E74C3C; border:1px solid rgba(231,76,60,0.25); }
+    .tag-bastion  { background: rgba(26,188,156,0.15); color: #1ABC9C; border:1px solid rgba(26,188,156,0.25); }
+
+    /* Node icon backgrounds */
+    .icon-ec2    { background: rgba(255,153,0,0.15); }
+    .icon-alb    { background: rgba(255,153,0,0.15); }
+    .icon-nginx  { background: rgba(46,204,113,0.12); }
+    .icon-master { background: rgba(74,144,226,0.15); }
+    .icon-worker { background: rgba(52,152,219,0.12); }
+    .icon-nfs    { background: rgba(155,89,182,0.12); }
+
+    /* ── Status Dot ── */
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #2ECC71;
+      position: absolute;
+      top: 10px; right: 10px;
+      animation: pulse-green 2s ease-in-out infinite;
+    }
+    @keyframes pulse-green {
+      0%,100% { box-shadow: 0 0 0 0 rgba(46,204,113,0.6); }
+      50%      { box-shadow: 0 0 0 6px rgba(46,204,113,0); }
+    }
+
+    /* ── Disk Badge ── */
+    .disk-badge {
+      font-size: 0.62rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: #8b949e;
+      background: rgba(255,255,255,0.05);
+      border-radius: 6px;
+      padding: 1px 5px;
+      margin-top: 4px;
+      display: inline-block;
+    }
+
+    /* ── ALB Section ── */
+    .alb-section {
+      margin: 20px 0 20px;
+      display: flex;
+      justify-content: center;
+    }
+    .alb-card {
+      background: linear-gradient(135deg, rgba(255,153,0,0.12), rgba(255,153,0,0.04));
+      border: 1.5px solid rgba(255,153,0,0.4);
+      border-radius: 14px;
+      padding: 16px 28px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      width: 100%;
+      max-width: 700px;
+      box-shadow: 0 0 30px rgba(255,153,0,0.08);
+      animation: glowALB 3s ease-in-out infinite alternate;
+    }
+    @keyframes glowALB {
+      from { box-shadow: 0 0 20px rgba(255,153,0,0.06); }
+      to   { box-shadow: 0 0 50px rgba(255,153,0,0.2); }
+    }
+    .alb-icon { font-size: 2.4rem; }
+    .alb-info { flex: 1; }
+    .alb-info .alb-name { font-weight: 700; font-size: 1rem; color: #FF9900; }
+    .alb-info .alb-sub  { font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; color: #8b949e; margin-top: 3px; }
+    .alb-info .alb-tags { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+
+    /* ── Target Group ── */
+    .tg-section {
+      margin: 0 0 20px;
+      display: flex;
+      justify-content: center;
+    }
+    .tg-card {
+      background: rgba(255,153,0,0.06);
+      border: 1px dashed rgba(255,153,0,0.3);
+      border-radius: 10px;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      max-width: 700px;
+    }
+    .tg-label { font-size: 0.8rem; font-weight: 600; color: #FF9900; }
+    .tg-detail { font-size: 0.68rem; font-family: 'JetBrains Mono', monospace; color: #8b949e; margin-top: 2px; }
+
+    /* ── Connector Lines (SVG) ── */
+    .connectors-svg {
+      position: absolute;
+      top: 0; left: 0;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    /* ── Flow Arrow between sections ── */
+    .flow-arrow {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 12px 0;
+      gap: 6px;
+    }
+    .flow-arrow .arrow-line {
+      width: 2px;
+      height: 30px;
+      background: linear-gradient(to bottom, rgba(255,153,0,0.7), rgba(255,153,0,0.1));
+      position: relative;
+      animation: flowDown 1.5s linear infinite;
+    }
+    .flow-arrow .arrow-line::after {
+      content: '▼';
+      position: absolute;
+      bottom: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #FF9900;
+      font-size: 0.75rem;
+      animation: bounce 1s ease-in-out infinite;
+    }
+    @keyframes bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(4px)} }
+    @keyframes flowDown { from{opacity:1} to{opacity:0.3} }
+
+    .flow-label {
+      font-size: 0.65rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: #FF9900;
+      opacity: 0.7;
+    }
+
+    /* ── Service Card ── */
+    .svc-card {
+      background: rgba(22,27,39,0.8);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px;
+      padding: 12px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .svc-card:hover {
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    }
+
+    /* ── Data Packets animation ── */
+    .packet {
+      display: inline-block;
+      width: 6px; height: 6px;
+      background: #FF9900;
+      border-radius: 50%;
+      animation: packetFlow 2s ease-in-out infinite;
+    }
+    @keyframes packetFlow {
+      0%   { transform: translateY(0); opacity: 0; }
+      20%  { opacity: 1; }
+      80%  { opacity: 1; }
+      100% { transform: translateY(40px); opacity: 0; }
+    }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 16px;
+      margin: 32px auto 0;
+      max-width: 900px;
+      padding: 16px 20px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 12px;
+    }
+    .legend-item {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.75rem; color: #8b949e;
+    }
+    .legend-box {
+      width: 14px; height: 14px;
+      border-radius: 4px;
+    }
+
+    /* ── Stats Bar ── */
+    .stats-bar {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      margin: 24px 0 10px;
+      flex-wrap: wrap;
+    }
+    .stat {
+      text-align: center;
+      animation: countUp 1s ease-out forwards;
+    }
+    .stat .num {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #FF9900;
+      display: block;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .stat .lbl { font-size: 0.7rem; color: #8b949e; text-transform: uppercase; letter-spacing: 1px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .subnet-public  { grid-template-columns: 1fr; }
+      .subnet-private { grid-template-columns: 1fr; }
+    }
+
+    /* ── Worker count badges ── */
+    .count-badge {
+      background: rgba(255,153,0,0.15);
+      border: 1px solid rgba(255,153,0,0.3);
+      color: #FF9900;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-left: 6px;
+    }
+
+    /* Divider */
+    .section-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,153,0,0.2), transparent);
+      margin: 20px 0;
+    }
+
+    /* scroll reveal */
+    .reveal { opacity: 0; transform: translateY(20px); transition: opacity 0.6s, transform 0.6s; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+
+<!-- ─────────────── HEADER ─────────────── -->
+<div class="header">
+  <h1>☁️ K8s AWS Infrastructure</h1>
+  <p>✦ Terraform-generated · High-Availability Kubernetes Cluster · AWS ap-southeast-1 ✦</p>
+</div>
+
+<div class="canvas">
+
+  <!-- Stats Bar -->
+  <div class="stats-bar reveal">
+    <div class="stat"><span class="num">6</span><span class="lbl">EC2 Instances</span></div>
+    <div class="stat"><span class="num">2</span><span class="lbl">Control Planes</span></div>
+    <div class="stat"><span class="num">2</span><span class="lbl">Worker Nodes</span></div>
+    <div class="stat"><span class="num">1</span><span class="lbl">ALB</span></div>
+    <div class="stat"><span class="num">1</span><span class="lbl">NFS Server</span></div>
+    <div class="stat"><span class="num">4</span><span class="lbl">Subnets</span></div>
+  </div>
+
+  <!-- ─────────── INTERNET ─────────── -->
+  <div class="internet-layer reveal" style="transition-delay:0.1s">
+    <div class="internet-node">
+      <div style="font-size:3rem;">🌐</div>
+      <div style="font-size:0.8rem;color:#8b949e;font-weight:600;letter-spacing:1px;">INTERNET</div>
+      <div style="font-size:0.65rem;color:#555;font-family:'JetBrains Mono',monospace;">HTTP :80</div>
+    </div>
+  </div>
+
+  <!-- Flow Arrow -->
+  <div class="flow-arrow">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div class="packet" style="animation-delay:0s"></div>
+      <div class="packet" style="animation-delay:0.6s"></div>
+      <div class="packet" style="animation-delay:1.2s"></div>
+    </div>
+  </div>
+
+  <!-- ─────────── ALB ─────────── -->
+  <div class="alb-section reveal" style="transition-delay:0.2s">
+    <div class="alb-card">
+      <div class="alb-icon">⚖️</div>
+      <div class="alb-info">
+        <div class="alb-name">k8s-main-alb</div>
+        <div class="alb-sub">aws_lb · Application Load Balancer · Internet-facing · Layer 7</div>
+        <div class="alb-sub">Subnets: dattran_subnet, dattran_subnet-1, dattran_subnet_public_alb</div>
+        <div class="alb-tags">
+          <span class="tag tag-alb">ALB</span>
+          <span class="tag tag-nginx">Port 80 HTTP</span>
+          <span class="tag tag-ebs">Multi-AZ</span>
+          <span class="tag tag-ha">Internet-Facing</span>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:0.65rem;color:#FF9900;font-family:'JetBrains Mono',monospace;">Listener</div>
+        <div style="font-size:0.75rem;font-weight:600;">HTTP :80</div>
+        <div style="font-size:0.6rem;color:#8b949e;margin-top:2px;">forward →</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Target Group -->
+  <div class="tg-section reveal" style="transition-delay:0.25s">
+    <div class="tg-card">
+      <span style="font-size:1.2rem;">🎯</span>
+      <div>
+        <div class="tg-label">Target Group: k8s-tg-lb</div>
+        <div class="tg-detail">aws_lb_target_group · HTTP :80 → Workers :32222 (NodePort · Ingress)</div>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+        <span class="tag tag-nginx">HTTP</span>
+        <span class="tag tag-k8s">NodePort :32222</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Flow Arrow -->
+  <div class="flow-arrow" style="margin-bottom:8px">
+    <span class="flow-label" style="margin-right:8px">Traffic → VPC</span>
+    <div class="arrow-line"></div>
+  </div>
+
+  <!-- ─────────── VPC ─────────── -->
+  <div class="vpc-box reveal" style="transition-delay:0.3s">
+    <div class="vpc-label">🏗️ VPC · dattran_vpc</div>
+
+    <!-- ═══ PUBLIC SUBNET ROW ═══ -->
+    <div style="margin-top:10px;margin-bottom:18px;">
+      <div style="font-size:0.7rem;color:#FF9900;font-weight:600;letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
+        <span style="height:1px;flex:1;background:rgba(255,153,0,0.2)"></span>
+        🟠 PUBLIC SUBNETS
+        <span style="height:1px;flex:1;background:rgba(255,153,0,0.2)"></span>
+      </div>
+
+      <div class="subnet-row subnet-public">
+
+        <!-- Public Subnet 1 — Nginx LB -->
+        <div class="subnet-box public">
+          <div class="subnet-title">
+            <span class="dot"></span>
+            Public Subnet · dattran_subnet
+          </div>
+
+          <!-- Nginx LB Node -->
+          <div class="node-card">
+            <div class="status-dot"></div>
+            <div class="icon-wrap icon-nginx">🔀</div>
+            <div class="info">
+              <div class="name">k8s_nginx_lb</div>
+              <div class="type-label">aws_instance · t3.small · Nginx TCP Proxy</div>
+              <div class="disk-badge">💾 10 GB gp3</div>
+              <div class="tags">
+                <span class="tag tag-nginx">Nginx TCP Proxy</span>
+                <span class="tag tag-docker">Docker</span>
+                <span class="tag tag-bastion">Bastion Host</span>
+                <span class="tag tag-alb">FileBrowser</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Public Subnet 2 — Master 1 -->
+        <div class="subnet-box public">
+          <div class="subnet-title">
+            <span class="dot"></span>
+            Public Subnet · dattran_subnet
+          </div>
+
+          <!-- K8s Master 1 -->
+          <div class="node-card">
+            <div class="status-dot"></div>
+            <div class="icon-wrap icon-master">☸️</div>
+            <div class="info">
+              <div class="name">k8s_master <span class="count-badge">Master 1</span></div>
+              <div class="type-label">aws_instance · t3.medium · Control Plane</div>
+              <div class="disk-badge">💾 50 GB gp3</div>
+              <div class="tags">
+                <span class="tag tag-k8s">kubeadm init</span>
+                <span class="tag tag-rancher">Rancher</span>
+                <span class="tag tag-argocd">ArgoCD</span>
+                <span class="tag tag-prom">Prometheus</span>
+                <span class="tag tag-grafana">Grafana</span>
+                <span class="tag tag-ebs">EBS CSI</span>
+                <span class="tag tag-docker">Helm</span>
+                <span class="tag tag-alb">IMDSv2</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <!-- ═══ PRIVATE SUBNET ROW ═══ -->
+    <div>
+      <div style="font-size:0.7rem;color:#4FC3F7;font-weight:600;letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
+        <span style="height:1px;flex:1;background:rgba(79,195,247,0.2)"></span>
+        🔵 PRIVATE SUBNET · dattran_private_subnet
+        <span style="height:1px;flex:1;background:rgba(79,195,247,0.2)"></span>
+      </div>
+
+      <div class="subnet-row subnet-private">
+
+        <!-- Master 2 -->
+        <div class="subnet-box private">
+          <div class="subnet-title" style="color:#4FC3F7">
+            <span class="dot" style="background:#4FC3F7"></span>
+            Control Plane HA
+          </div>
+          <div class="node-card">
+            <div class="status-dot"></div>
+            <div class="icon-wrap icon-master">☸️</div>
+            <div class="info">
+              <div class="name">k8s_master_2 <span class="count-badge">Master 2</span></div>
+              <div class="type-label">aws_instance · t3.medium · HA Control Plane</div>
+              <div class="disk-badge">💾 20 GB gp3</div>
+              <div class="tags">
+                <span class="tag tag-k8s">Control Plane Join</span>
+                <span class="tag tag-ha">High Availability</span>
+                <span class="tag tag-ebs">IMDSv2</span>
+                <span class="tag tag-bastion">via Bastion</span>
+              </div>
+            </div>
+          </div>
+          <div style="font-size:0.6rem;color:#4FC3F7;text-align:center;opacity:0.7;font-family:'JetBrains Mono',monospace;">
+            SSH via Nginx LB Bastion
+          </div>
+        </div>
+
+        <!-- Workers -->
+        <div class="subnet-box private">
+          <div class="subnet-title" style="color:#4FC3F7">
+            <span class="dot" style="background:#4FC3F7"></span>
+            Worker Nodes <span class="count-badge">count=2</span>
+          </div>
+
+          <div class="node-card">
+            <div class="status-dot"></div>
+            <div class="icon-wrap icon-worker">🖥️</div>
+            <div class="info">
+              <div class="name">k8s_worker-0</div>
+              <div class="type-label">aws_instance · t3.medium · Worker</div>
+              <div class="disk-badge">💾 20 GB gp3</div>
+              <div class="tags">
+                <span class="tag tag-k8s">Worker Join</span>
+                <span class="tag tag-alb">NodePort :32222</span>
+                <span class="tag tag-ebs">IMDSv2</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="node-card">
+            <div class="status-dot"></div>
+            <div class="icon-wrap icon-worker">🖥️</div>
+            <div class="info">
+              <div class="name">k8s_worker-1</div>
+              <div class="type-label">aws_instance · t3.medium · Worker</div>
+              <div class="disk-badge">💾 20 GB gp3</div>
+              <div class="tags">
+                <span class="tag tag-k8s">Worker Join</span>
+                <span class="tag tag-alb">NodePort :32222</span>
+                <span class="tag tag-ebs">IMDSv2</span>
+              </div>
+            </div>
+          </div>
+          <div style="font-size:0.6rem;color:#4FC3F7;text-align:center;opacity:0.7;font-family:'JetBrains Mono',monospace;">
+            SSH via Nginx LB Bastion
+          </div>
+        </div>
+
+        <!-- NFS -->
+        <div class="subnet-box private">
+          <div class="subnet-title" style="color:#4FC3F7">
+            <span class="dot" style="background:#BB8FCE"></span>
+            NFS Storage <span class="count-badge">count=1</span>
+          </div>
+          <div class="node-card">
+            <div class="status-dot" style="background:#BB8FCE;animation-name:pulse-purple"></div>
+            <div class="icon-wrap icon-nfs">📦</div>
+            <div class="info">
+              <div class="name">k8s_nfs</div>
+              <div class="type-label">aws_instance · t3.small · NFS Server</div>
+              <div class="disk-badge">💾 30 GB gp3</div>
+              <div class="tags">
+                <span class="tag tag-nfs">NFS Server</span>
+                <span class="tag tag-k8s">PV / PVC</span>
+                <span class="tag tag-bastion">via Bastion</span>
+                <span class="tag tag-ebs">EBS / Storage</span>
+              </div>
+            </div>
+          </div>
+          <div style="font-size:0.6rem;color:#BB8FCE;text-align:center;opacity:0.7;font-family:'JetBrains Mono',monospace;">
+            SSH via Master Bastion
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /VPC -->
+
+  <!-- ─────────── IAM / Security ─────────── -->
+  <div class="reveal" style="transition-delay:0.5s;margin-top:24px">
+    <div style="font-size:0.7rem;color:#8b949e;font-weight:600;letter-spacing:1px;margin-bottom:10px;text-align:center;">
+      🔐 IAM · SECURITY GROUPS · KEY PAIRS
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center">
+
+      <div class="tg-card" style="max-width:280px;flex:1;min-width:200px">
+        <span style="font-size:1.2rem;">🔑</span>
+        <div>
+          <div class="tg-label">aws_key_pair · k8s</div>
+          <div class="tg-detail">SSH Key · k8s.pem</div>
+          <div class="tg-detail">All instances</div>
+        </div>
+      </div>
+
+      <div class="tg-card" style="max-width:280px;flex:1;min-width:200px">
+        <span style="font-size:1.2rem;">🛡️</span>
+        <div>
+          <div class="tg-label">IAM Instance Profile</div>
+          <div class="tg-detail">k8s_node_ebs_profile_1</div>
+          <div class="tg-detail">Masters + Workers + NFS</div>
+        </div>
+      </div>
+
+      <div class="tg-card" style="max-width:280px;flex:1;min-width:200px">
+        <span style="font-size:1.2rem;">🔥</span>
+        <div>
+          <div class="tg-label">Security Groups</div>
+          <div class="tg-detail">k8s_nginx_lb · k8s_master</div>
+          <div class="tg-detail">k8s_worker · k8s_nfs</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ─────────── Installed Services ─────────── -->
+  <div class="reveal" style="transition-delay:0.6s;margin-top:24px">
+    <div style="font-size:0.7rem;color:#8b949e;font-weight:600;letter-spacing:1px;margin-bottom:10px;text-align:center;">
+      🚀 DEPLOYED SERVICES  (via Ansible Playbooks + Helm)
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px">
+      <div class="svc-card" onmouseenter="this.style.transform='translateY(-3px)'" onmouseleave="this.style.transform='translateY(0)'"><div style="font-size:1.4rem;margin-bottom:6px">🐳</div><div style="font-size:0.8rem;font-weight:600">Docker</div><span class="tag tag-docker" style="margin-top:5px;display:inline-block">All Nodes</span></div>
+      <div class="svc-card" onmouseenter="this.style.transform='translateY(-3px)'" onmouseleave="this.style.transform='translateY(0)'"><div style="font-size:1.4rem;margin-bottom:6px">🔀</div><div style="font-size:0.8rem;font-weight:600">Nginx TCP Proxy</div><span class="tag tag-nginx" style="margin-top:5px;display:inline-block">Nginx LB</span></div>
+      <div class="svc-card" onmouseenter="this.style.transform='translateY(-3px)'" onmouseleave="this.style.transform='translateY(0)'"><div style="font-size:1.4rem;margin-bottom:6px">📂</div><div style="font-size:0.8rem;font-weight:600">FileBrowser</div><span class="tag tag-alb" style="margin-top:5px;display:inline-block">Nginx LB</span></div>
+      <div class="svc-card" onmouseenter="this.style.transform='translateY(-3px)'" onmouseleave="this.style.transform='translateY(0)'"><div style="font-size:1.4rem;margin-bottom:6px">☸️</div><div style="font-size:0.8rem;font-weight:600">kubeadm</div><span class="tag tag-k8s" style="margin-top:5px;display:inline-block">Masters</span></div>
+      <div class="svc-card" onmouseenter="this.style.transform='translateY(-3px)'" onmouseleave="this.style.transform='translateY(0)'"><div style="font-size:1.4rem;margin-bottom:6px">🐄</div><div style="font-size:0.8rem;font-weight:600">Rancher</div><span class="tag tag-rancher" style="margin-top:5px;display:inline-block">Master 1</span></div>
+      <div class="svc-card" onmouseenter="this.style.transform='translateY(-3px)'" onmouseleave="this.style.transform='translateY(0)'"><div style="font-size:1.4rem;margin-bottom:6px">🔄</div><div style="font-size:0.8rem;font-weight:600">ArgoCD</div><span class="tag tag-argocd" style="margin-top:5px;display:inline-block">Master 1</span></div>
+      <div class="svc-card" onmouseenter="this.style.transform='translateY(-3px)'" onmouseleave="this.style.transform='translateY(0)'"><div style="font-size:1.4rem;margin-bottom:6px">📊</div><div style="font-size:0.8rem;font-weight:600">Prometheus</div><span class="tag tag-prom" style="margin-top:5px;display:inline-block">Master 1</span></div>
+      <div class="svc-card" onmouseenter="this.style.transform='translateY(-3px)'" onmouseleave="this.style.transform='translateY(0)'"><div style="font-size:1.4rem;margin-bottom:6px">📈</div><div style="font-size:0.8rem;font-weight:600">Grafana</div><span class="tag tag-grafana" style="margin-top:5px;display:inline-block">Master 1</span></div>
+      <div class="svc-card" onmouseenter="this.style.transform='translateY(-3px)'" onmouseleave="this.style.transform='translateY(0)'"><div style="font-size:1.4rem;margin-bottom:6px">⚓</div><div style="font-size:0.8rem;font-weight:600">Helm</div><span class="tag tag-docker" style="margin-top:5px;display:inline-block">Master 1</span></div>
+      <div class="svc-card" onmouseenter="this.style.transform='translateY(-3px)'" onmouseleave="this.style.transform='translateY(0)'"><div style="font-size:1.4rem;margin-bottom:6px">💾</div><div style="font-size:0.8rem;font-weight:600">AWS EBS CSI</div><span class="tag tag-ebs" style="margin-top:5px;display:inline-block">Master 1</span></div>
+      <div class="svc-card" onmouseenter="this.style.transform='translateY(-3px)'" onmouseleave="this.style.transform='translateY(0)'"><div style="font-size:1.4rem;margin-bottom:6px">🔍</div><div style="font-size:0.8rem;font-weight:600">Elasticsearch</div><span class="tag tag-nfs" style="margin-top:5px;display:inline-block">Master 1</span></div>
+      <div class="svc-card" onmouseenter="this.style.transform='translateY(-3px)'" onmouseleave="this.style.transform='translateY(0)'"><div style="font-size:1.4rem;margin-bottom:6px">📦</div><div style="font-size:0.8rem;font-weight:600">NFS Server</div><span class="tag tag-nfs" style="margin-top:5px;display:inline-block">NFS Node</span></div>
+    </div>
+  </div>
+
+  <!-- ─────────── Data Flow Legend ─────────── -->
+  <div class="legend reveal" style="transition-delay:0.7s;margin-top:30px">
+    <div class="legend-item"><div class="legend-box" style="background:#FF9900;opacity:0.7"></div> ALB / Load Balancer</div>
+    <div class="legend-item"><div class="legend-box" style="background:#2ECC71;opacity:0.7"></div> Nginx (Public)</div>
+    <div class="legend-item"><div class="legend-box" style="background:#4FC3F7;opacity:0.7"></div> K8s Control Plane</div>
+    <div class="legend-item"><div class="legend-box" style="background:#74BDFF;opacity:0.7"></div> K8s Worker Node</div>
+    <div class="legend-item"><div class="legend-box" style="background:#BB8FCE;opacity:0.7"></div> NFS Storage</div>
+    <div class="legend-item"><div class="legend-box" style="background:rgba(255,153,0,0.3);border:1px dashed #FF9900"></div> Public Subnet</div>
+    <div class="legend-item"><div class="legend-box" style="background:rgba(79,195,247,0.3);border:1px dashed #4FC3F7"></div> Private Subnet</div>
+    <div class="legend-item">🔒 SSH via Bastion (Nginx LB)</div>
+    <div class="legend-item">📡 IMDSv2 + Hop Limit=2 (CSI)</div>
+  </div>
+
+  <!-- Footer -->
+  <div style="text-align:center;margin-top:30px;font-size:0.7rem;color:#3d4451;font-family:'JetBrains Mono',monospace;">
+    Generated from main.tf · Terraform · AWS ap-southeast-1 · © 2026 K8s Cluster
+  </div>
+
+</div><!-- /canvas -->
+
+<style>
+  @keyframes pulse-purple {
+    0%,100%{ box-shadow: 0 0 0 0 rgba(155,89,182,0.6); }
+    50%     { box-shadow: 0 0 0 6px rgba(155,89,182,0); }
+  }
+</style>
+
+<script>
+  // Scroll reveal
+  const reveals = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((e, i) => {
+      if (e.isIntersecting) {
+        setTimeout(() => e.target.classList.add('visible'), i * 80);
+      }
+    });
+  }, { threshold: 0.1 });
+  reveals.forEach(r => observer.observe(r));
+
+  // Auto-reveal all on load after delay
+  setTimeout(() => {
+    reveals.forEach(r => r.classList.add('visible'));
+  }, 200);
+
+  // Staggered tag animations
+  document.querySelectorAll('.tag').forEach((tag, i) => {
+    tag.style.animationDelay = `${i * 0.05}s`;
+  });
+
+  // Service grid - render via JS (since template literals won't work directly in HTML without script)
+  // The services section is already embedded above as inline template
+</script>
+
+</body>
+</html>

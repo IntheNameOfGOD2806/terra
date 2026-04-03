@@ -1,5 +1,5 @@
-#launch master node
-
+# Khởi tạo EC2 instance làm Nginx Load Balancer (TCP Proxy đứng trước các K8s Master Nodes)
+# Thực thi provisioning qua Ansible: cài Docker, cấu hình stream TCP, cài FileBrowser.
 resource "aws_instance" "k8s_nginx_lb" {
   ami           = var.ami["nginx_lb"]
   instance_type = var.instance_type["nginx_lb"]
@@ -54,6 +54,9 @@ resource "aws_instance" "k8s_nginx_lb" {
   #   command = "ansible-playbook -i '${self.public_ip},' installjenkins.yaml"
   # }
 }
+
+# Khởi tạo EC2 instance làm Kubernetes Master Node 1 (Control Plane chính)
+# Khởi tạo K8s cluster (kubeadm init), cài đặt Docker, Rancher, ArgoCD, Prometheus, Grafana và cập nhật IP cho Nginx LB.
 resource "aws_instance" "k8s_master" {
   ami           = var.ami["master"]
   instance_type = var.instance_type["master"]
@@ -113,7 +116,7 @@ resource "aws_instance" "k8s_master" {
   }
   provisioner "remote-exec" {
     inline = [
-      "sleep 60"
+      "sleep 20"
     ]
   }
 
@@ -138,10 +141,77 @@ resource "aws_instance" "k8s_master" {
     # fetch kubeconfig
     command = "ansible-playbook -i '${self.public_ip},' fetchKubeConfigfromMaster.yaml"
   }
+  provisioner "local-exec" {
+    command = "ansible-playbook -i '${self.public_ip},' installHelm.yaml"
+  }
+  provisioner "remote-exec" {
+    inline = [
+      "kubectl create namespace argocd",
+      "kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml"
+    ]
+
+  }
+  provisioner "file" {
+    source      = "./storageClassEBS.yaml"
+    destination = "/home/ubuntu/storageClassEBS.yaml"
+  }
+  provisioner "file" {
+    source      = "./values-edit.yaml"
+    destination = "/home/ubuntu/values-edit.yaml"
+  }
+  provisioner "remote-exec" {
+    inline = [
+      "kubectl apply -f /home/ubuntu/storageClassEBS.yaml"
+    ]
+  }
+  provisioner "remote-exec" {
+    inline = [
+      "helm repo add aws-ebs-csi-driver https://kubernetes-sigs/aws-ebs-csi-driver",
+      "helm repo update",
+      "helm upgrade --install aws-ebs-csi-driver --namespace kube-system aws-ebs-csi-driver/aws-ebs-csi-driver"
+    ]
+  }
+  provisioner "remote-exec" {
+    inline = [
+      "helm repo add prometheus-community https://prometheus-community.github.io/helm-charts",
+      "helm repo add grafana https://grafana.github.io/helm-charts",
+      "helm repo update",
+      "kubectl create namespace monitoring"
+    ]
+  }
+  provisioner "remote-exec" {
+    inline = [
+      "kubectl create namespace logging",
+      "helm repo add elastic https://helm.elastic.co",
+      "helm repo update",
+      "helm search repo elastic --version 7",
+      "helm pull elastic/elasticsearch --version 7.17.10"
+    ]
+  }
+
+  # provisioner "remote-exec" {
+  #   inline = [
+  #     "cd /home/ubuntu",
+  #     "export HELM_MAX_INDEX_SIZE=20971520",
+  #     # "helm search repo kube-prometheus-stack",
+  #     # "helm pull prometheus-community/kube-prometheus-stack",
+  #     # "tar -xvzf kube-prometheus-stack-82.13.6.tgz",
+  #     # "cd kube-prometheus-stack",
+  #     "helm upgrade -i prometheus -n monitoring -f values-edit.yaml ."
+  #   ]
+
+  # }
+  # provisioner "remote-exec" {
+  #   inline = [
+  #     "helm upgrade -i prometheus -n monitoring -f values-edit.yaml ."
+  #   ]
+  # }
 
 }
 
 
+# Khởi tạo EC2 instance làm Kubernetes Master Node 2 (Control Plane dự phòng - cho High Availability)
+# Chạy ở Private Subnet, dùng Nginx LB làm Bastion. Join cluster dưới dạng control-plane và cập nhật IP vào Nginx LB.
 resource "aws_instance" "k8s_master_2" {
   ami           = var.ami["master"]
   instance_type = var.instance_type["master"]
@@ -247,8 +317,8 @@ resource "aws_instance" "k8s_master_2" {
 
 }
 
-#launch worker node
-
+# Khởi tạo các EC2 instance làm Kubernetes Worker Node
+# Chạy ở Private Subnet. Tự động nhận số lượng thông qua biến count và chạy script join Kubernetes cluster qua Bastion host.
 resource "aws_instance" "k8s_worker" {
   count         = var.worker_count
   ami           = var.ami["worker"]
@@ -305,7 +375,8 @@ resource "aws_instance" "k8s_worker" {
 
 
 
-#NFS server
+
+
 resource "aws_instance" "k8s_nfs" {
   count         = var.nfs_count
   ami           = var.ami["nfs"]
@@ -356,47 +427,65 @@ resource "aws_instance" "k8s_nfs" {
 
 
 
-// Target groups
+# Target Group của Application Load Balancer để nhóm các resource chịu tải
+# Được thiết lập cấu hình chạy giao thức HTTP/port 80. Lắng nghe và kiểm tra tình trạng kết nối.
 resource "aws_lb_target_group" "k8s_tg_lb" { // Target Group A
   name     = "k8s-tg-lb"
   port     = 80
   protocol = "HTTP"
   vpc_id   = data.aws_vpc.dattran_vpc.id
-  # depends_on = [aws_instance.k8s_master,
-  #   aws_instance.k8s_worker,
-  #   aws_instance.k8s_nginx_lb,
-  #   aws_instance.k8s_nfs
-  # ]
+  depends_on = [aws_instance.k8s_master,
+    aws_instance.k8s_worker,
+    aws_instance.k8s_nginx_lb,
+    aws_instance.k8s_nfs
+  ]
 }
-// Target group attachment
-# attach workers node to target group use loop
+# Gắn (Attach) các EC2 instance thuộc Kubernetes Worker Node vào Target Group
+# Hướng HTTP traffic đến NodePort (port 32222 - Ingress Service) của các Worker Node để vào cluster.
 resource "aws_lb_target_group_attachment" "tg_attachment_lb" {
-  # count = length(aws_instance.k8s_worker)
-  # Tạo một map với key là index của instance (tĩnh)
-  for_each = { for x, instance in aws_instance.k8s_worker : x => instance.id }
-  # for_each         = toset(aws_instance.k8s_worker[*].id)
+  count            = var.worker_count # Dùng luôn count cho đồng bộ với lúc tạo instance
   target_group_arn = aws_lb_target_group.k8s_tg_lb.arn
-  target_id        = each.value
-  port             = 80
+  target_id        = aws_instance.k8s_worker[count.index].id
+  port             = 32222 # Đảm bảo Ingress Controller trên worker đang map đúng port này
 }
 
+# Cấu hình Listener cho Load Balancer
+# Đóng vai trò lắng nghe request ở port 80 (HTTP) và định tuyến (forward) traffic toàn bộ vào Target Group ở trên.
+resource "aws_lb_listener" "http" {
+  load_balancer_arn = aws_lb.k8s_alb.arn
+  port              = 80
+  protocol          = "HTTP"
 
-resource "aws_lb" "k8s_lb" {
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.k8s_tg_lb.arn
+  }
+}
+# resource "aws_lb_listener" "https" {
+#   load_balancer_arn = aws_lb.k8s_alb.arn
+#   port              = 443
+#   protocol          = "HTTPS"
+#   ssl_policy        = "ELBSecurityPolicy-2016-08"
+#   certificate_arn   = aws_acm_certificate.k8s_cert.arn
+
+#   default_action {
+#     type             = "forward"
+#     target_group_arn = aws_lb_target_group.k8s_tg_lb.arn
+#   }
+# }
+
+# Thiết lập AWS Application Load Balancer (Layer 7) làm cổng mạng Ingress chính của hệ thống từ Internet ngoài
+# Gắn vào public subnets và liên kết với Security Group cho phép traffic từ mọi nơi.
+resource "aws_lb" "k8s_alb" {
   name               = "k8s-lb"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.k8s_nginx_lb.id]
-  subnets            = [data.aws_subnet.dattran_subnet.id, data.aws_subnet.dattran_subnet-1.id]
-
-  enable_deletion_protection = false
-
-  # access_logs {
-  #   bucket  = aws_s3_bucket.lb_logs.id
-  #   prefix  = "test-lb"
-  #   enabled = true
-  # }
+  security_groups    = [aws_security_group.k8s_nginx_lb.id] # Dùng chung SG hoặc tạo mới
+  subnets = [data.aws_subnet.dattran_subnet.id, data.aws_subnet.dattran_subnet-1.id,
+    data.aws_subnet.dattran_subnet_public_alb.id,
+  ]
 
   tags = {
-    Environment = "production"
+    Name = "k8s-main-alb"
   }
 }

@@ -1,5 +1,5 @@
 - name: Install Helm
-  hosts: local
+  hosts: all
   become: yes # required for moving binary to system path
 
   tasks:

@@ -21,6 +21,13 @@ data "aws_subnet" "dattran_subnet-1" {
   }
   vpc_id = data.aws_vpc.dattran_vpc.id
 }
+data "aws_subnet" "dattran_subnet_public_alb" {
+  filter {
+    name   = "tag:Name"
+    values = ["public-subnet-forALB"]
+  }
+  vpc_id = data.aws_vpc.dattran_vpc.id
+}
 data "aws_subnet" "dattran_private_subnet" {
   filter {
     name   = "tag:Name"
@@ -36,3 +43,4 @@ data "aws_security_group" "k8s_vpn" {
   }
   vpc_id = data.aws_vpc.dattran_vpc.id
 }
+# File: lb.tf (hoặc dán vào file hiện tại)

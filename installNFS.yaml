@@ -1,7 +1,3 @@
----
-# ==========================================
-# PHẦN 1: CÀI ĐẶT VÀ CẤU HÌNH NFS SERVER
-# ==========================================
 - name: Setup NFS Server
   hosts: all
   gather_facts: yes
@@ -17,7 +13,7 @@
         state: present
         update_cache: yes
 
-    - name: Tạo thư mục chia sẻ (Share Directory) và phân quyền
+    - name: Tạo thư mục chia sẻ và phân quyền
       ansible.builtin.file:
         path: "{{ nfs_dir }}"
         state: directory
@@ -30,7 +26,7 @@
         path: /etc/exports
         line: "{{ nfs_dir }} {{ allowed_network }}(rw,sync,no_subtree_check,no_root_squash)"
         create: yes
-      notify: Reload NFS # Gọi handler bên dưới nếu có sự thay đổi
+      notify: Reload NFS
 
     - name: Đảm bảo dịch vụ NFS đang chạy và tự khởi động
       ansible.builtin.systemd:
@@ -44,7 +40,7 @@
     #     src: "{{ allowed_network }}"
     #     port: "2049"
     #     proto: any
-    #   ignore_errors: yes # Bỏ qua nếu máy bạn không cài sẵn UFW
+    #   ignore_errors: yes
 
   handlers:
     - name: Reload NFS
@@ -55,42 +51,3 @@
       ansible.builtin.systemd:
         name: nfs-kernel-server
         state: restarted
-# # ==========================================
-# # PHẦN 2: KIỂM TRA TRÊN CLIENT (WORKER NODES)
-# # ==========================================
-# - name: Setup NFS Clients and Test Mount
-#   hosts: k8s_workers
-#   become: yes
-#   vars:
-#     nfs_server_ip: "10.0.1.50" # Sửa lại thành IP thật của NFS Server
-#     nfs_dir: "/mnt/k8s-nfs"
-#     test_mount_dir: "/tmp/test-nfs"
-
-#   tasks:
-#     - name: Bắt buộc cài đặt nfs-common trên các Worker
-#       ansible.builtin.apt:
-#         name: nfs-common
-#         state: present
-#         update_cache: yes
-
-#     - name: Tạo thư mục tạm để test mount
-#       ansible.builtin.file:
-#         path: "{{ test_mount_dir }}"
-#         state: directory
-
-#     - name: Mount ổ đĩa NFS vào máy client
-#       ansible.posix.mount:
-#         path: "{{ test_mount_dir }}"
-#         src: "{{ nfs_server_ip }}:{{ nfs_dir }}"
-#         fstype: nfs
-#         opts: rw,sync,hard
-#         state: mounted
-
-#     - name: Hiển thị dung lượng ổ cứng để xác nhận thành công (df -h)
-#       ansible.builtin.command: df -h {{ test_mount_dir }}
-#       register: mount_info
-#       changed_when: false
-
-#     - name: In kết quả mount ra màn hình
-#       ansible.builtin.debug:
-#         msg: "{{ mount_info.stdout_lines }}"
