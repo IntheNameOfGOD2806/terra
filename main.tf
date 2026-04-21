@@ -360,6 +360,21 @@ resource "null_resource" "helm_charts" {
       helm upgrade -i kibana -n logging  -f values.yaml .
     EOT
   }
+
+  provisioner "local-exec" {
+    command = <<EOT
+      kubectl create ns isc-be
+      cd Helm/charts/isc-be
+      helm upgrade -i isc-be . -n isc-be
+    EOT
+  }
+  provisioner "local-exec" {
+    command = <<EOT
+      kubectl create ns isc-fe
+      cd Helm/charts/isc-fe
+      helm upgrade -i isc-fe . -n isc-fe
+    EOT
+  }
 }
 
 # Khởi tạo các EC2 instance làm Kubernetes Worker Node

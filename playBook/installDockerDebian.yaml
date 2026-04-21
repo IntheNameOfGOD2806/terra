@@ -26,6 +26,15 @@
     repo_file_path: /etc/apt/sources.list.d/docker.sources
 
   tasks:
+    - name: Fix Ubuntu mirror (avoid AWS 503)
+      replace:
+        path: /etc/apt/sources.list.d/ubuntu.sources
+        regexp: "http://ap-southeast-1.ec2.archive.ubuntu.com/ubuntu"
+        replace: "http://archive.ubuntu.com/ubuntu"
+
+    - name: Update apt cache after mirror fix
+      apt:
+        update_cache: yes
     # BƯỚC QUAN TRỌNG: Xóa bỏ các cấu hình lỗi cũ để tránh treo apt update
     - name: Clean up old incorrect Docker source files
       file:

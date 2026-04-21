@@ -18,8 +18,7 @@ serviceAccount:
 
 podAnnotations: {}
 
-podSecurityContext: {}
-  # fsGroup: 2000
+podSecurityContext: {} # fsGroup: 2000
 
 securityContext: {}
   # capabilities:
@@ -38,7 +37,7 @@ ingress:
   className: "nginx"
   annotations: {}
   hosts:
-    - host: chart-example.local
+    - host: backend.tranthanhdat.org
       paths:
         - path: /
           pathType: ImplementationSpecific
@@ -80,7 +79,7 @@ env:
   EMAIL_PASSWORD: "woav yyvy xyhg vdos"
   EMAIL_PORT: "587"
   EMAIL_USERNAME: "tranthanhdat4321@gmail.com"
-  FRONTEND_URL: "https://boncauthongminh.vercel.app"
+  FRONTEND_URL: "https://frontend.tranthanhdat.org"
   GEMINI_API_KEY: "AIzaSyBN6o8CHTCbpooSfO2xT0d2Gx2vyJlGpC8"
   JWT_EXPIRES_IN: "1d"
   JWT_REFRESH_EXPIRES_IN: "7d"

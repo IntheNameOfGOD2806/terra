@@ -1,10 +1,10 @@
 variable "ami" {
   type = map(string)
   default = {
-    "master"   = "ami-00d8fc944fb171e29"
-    "worker"   = "ami-00d8fc944fb171e29"
-    "nginx_lb" = "ami-00d8fc944fb171e29"
-    "nfs"      = "ami-00d8fc944fb171e29"
+    "master"   = "ami-0e7ff22101b84bcff"
+    "worker"   = "ami-0e7ff22101b84bcff"
+    "nginx_lb" = "ami-0e7ff22101b84bcff"
+    "nfs"      = "ami-0e7ff22101b84bcff"
   }
 }
 

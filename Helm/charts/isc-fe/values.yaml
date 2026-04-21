@@ -3,7 +3,7 @@ replicaCount: 1
 image:
   registry: 296725355870.dkr.ecr.ap-southeast-1.amazonaws.com
   repository: isc/isc-fe-image
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
   tag: "latest"
 
 imagePullSecrets:
@@ -18,8 +18,7 @@ serviceAccount:
 
 podAnnotations: {}
 
-podSecurityContext: {}
-  # fsGroup: 2000
+podSecurityContext: {} # fsGroup: 2000
 
 securityContext: {}
   # capabilities:
@@ -38,7 +37,7 @@ ingress:
   className: "nginx"
   annotations: {}
   hosts:
-    - host: chart-example.local
+    - host: frontend.tranthanhdat.org
       paths:
         - path: /
           pathType: ImplementationSpecific
@@ -66,12 +65,12 @@ affinity: {}
 
 # Environment variables to be injected via ConfigMap
 env:
-  VITE_API_URL: "https://isc-p4t8.onrender.com/api"
+  VITE_API_URL: "https://backend.tranthanhdat.org/api"
   VITE_APP_NAME: "Fashion Store"
   VITE_APP_VERSION: "1.0.0"
   VITE_BASE_URL: "/"
   VITE_BUILD_SOURCEMAP: "true"
-  VITE_CANCEL_URL: "https://boncauthongminh.vercel.app/checkout/cancel"
+  VITE_CANCEL_URL: "https://frontend.tranthanhdat.org/checkout/cancel"
   VITE_GEMINI_API_KEY: ""
-  VITE_RETURN_URL: "https://boncauthongminh.vercel.app/checkout/success"
+  VITE_RETURN_URL: "https://frontend.tranthanhdat.org/checkout/success"
   VITE_STRIPE_PUBLISHABLE_KEY: ""

@@ -1,6 +1,16 @@
 #!/bin/bash
 set -e
 
+# Fix Ubuntu mirror (avoid AWS 503)
+echo "-------------Fixing Ubuntu mirror-------------"
+if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+    sudo sed -i 's|http://ap-southeast-1.ec2.archive.ubuntu.com/ubuntu|http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources
+fi
+if [ -f /etc/apt/sources.list ]; then
+    sudo sed -i 's|http://ap-southeast-1.ec2.archive.ubuntu.com/ubuntu|http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list
+fi
+sudo apt-get update
+
 # Set hostname
 echo "-------------Setting hostname-------------"
 hostnamectl set-hostname $1

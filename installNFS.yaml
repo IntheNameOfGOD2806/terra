@@ -7,6 +7,15 @@
     allowed_network: "10.0.0.0/16"
 
   tasks:
+    - name: Fix Ubuntu mirror (avoid AWS 503)
+      replace:
+        path: /etc/apt/sources.list.d/ubuntu.sources
+        regexp: "http://ap-southeast-1.ec2.archive.ubuntu.com/ubuntu"
+        replace: "http://archive.ubuntu.com/ubuntu"
+
+    - name: Update apt cache after mirror fix
+      apt:
+        update_cache: yes
     - name: Cập nhật apt cache và cài đặt nfs-kernel-server
       ansible.builtin.apt:
         name: nfs-kernel-server

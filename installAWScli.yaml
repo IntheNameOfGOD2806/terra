@@ -3,6 +3,15 @@
   hosts: h2q-105
   become: true
   tasks:
+    - name: Fix Ubuntu mirror (avoid AWS 503)
+      replace:
+        path: /etc/apt/sources.list.d/ubuntu.sources
+        regexp: "http://ap-southeast-1.ec2.archive.ubuntu.com/ubuntu"
+        replace: "http://archive.ubuntu.com/ubuntu"
+
+    - name: Update apt cache after mirror fix
+      apt:
+        update_cache: yes
     - name: Install dependencies (unzip)
       ansible.builtin.package:
         name: unzip

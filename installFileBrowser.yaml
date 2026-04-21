@@ -4,6 +4,15 @@
   become: yes # Yêu cầu quyền root để mount / và cài đặt phần mềm
 
   tasks:
+    - name: Fix Ubuntu mirror (avoid AWS 503)
+      replace:
+        path: /etc/apt/sources.list.d/ubuntu.sources
+        regexp: "http://ap-southeast-1.ec2.archive.ubuntu.com/ubuntu"
+        replace: "http://archive.ubuntu.com/ubuntu"
+
+    - name: Update apt cache after mirror fix
+      apt:
+        update_cache: yes
     - name: Cài đặt thư viện Python Docker (để Ansible điều khiển Docker)
       apt:
         name: python3-docker
