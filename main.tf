@@ -197,7 +197,9 @@ resource "aws_instance" "k8s_master" {
       sed -i 's|https://${aws_instance.k8s_nginx_lb.private_ip}:6443|https://${aws_instance.k8s_nginx_lb.public_ip}:6443|g' /home/dattran/.kube/config
     EOT
   }
-
+  provisioner "local-exec" {
+    command = "ansible-playbook  provisionKubeConfig.yaml"
+  }
   provisioner "remote-exec" {
     inline = [
       "sleep 20"
@@ -537,6 +539,26 @@ resource "aws_lb_listener" "http" {
   port              = 80
   protocol          = "HTTP"
 
+  # default_action {
+  #   type             = "forward"
+  #   target_group_arn = aws_lb_target_group.k8s_tg_lb.arn
+  # }
+  default_action {
+    type = "redirect"
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+resource "aws_lb_listener" "https" {
+  load_balancer_arn = aws_lb.k8s_alb.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  certificate_arn   = data.aws_acm_certificate.default.arn
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.k8s_tg_lb.arn
@@ -562,7 +584,7 @@ resource "aws_lb" "k8s_alb" {
   name               = "k8s-lb"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.k8s_nginx_lb.id] # Dùng chung SG hoặc tạo mới
+  security_groups    = [aws_security_group.k8s_nginx_lb.id]
   subnets = [data.aws_subnet.dattran_subnet.id, data.aws_subnet.dattran_subnet-1.id,
     data.aws_subnet.dattran_subnet_public_alb.id,
   ]
@@ -570,4 +592,17 @@ resource "aws_lb" "k8s_alb" {
   tags = {
     Name = "k8s-main-alb"
   }
+}
+
+resource "aws_lb_listener_certificate" "frontend" {
+  listener_arn    = aws_lb_listener.https.arn
+  certificate_arn = data.aws_acm_certificate.frontend.arn
+}
+resource "aws_lb_listener_certificate" "backend" {
+  listener_arn    = aws_lb_listener.https.arn
+  certificate_arn = data.aws_acm_certificate.backend.arn
+}
+resource "aws_lb_listener_certificate" "rancher" {
+  listener_arn    = aws_lb_listener.https.arn
+  certificate_arn = data.aws_acm_certificate.rancher.arn
 }

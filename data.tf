@@ -45,3 +45,23 @@ data "aws_security_group" "k8s_vpn" {
 }
 # File: lb.tf (hoặc dán vào file hiện tại)
 
+data "aws_acm_certificate" "default" {
+  domain      = "*.tranthanhdat.org"
+  statuses    = ["ISSUED"]
+  most_recent = true
+}
+data "aws_acm_certificate" "frontend" {
+  domain      = "frontend.tranthanhdat.org"
+  statuses    = ["ISSUED"]
+  most_recent = true
+}
+data "aws_acm_certificate" "backend" {
+  domain      = "backend.tranthanhdat.org"
+  statuses    = ["ISSUED"]
+  most_recent = true
+}
+data "aws_acm_certificate" "rancher" {
+  domain      = "rancher.tranthanhdat.org"
+  statuses    = ["ISSUED"]
+  most_recent = true
+}
