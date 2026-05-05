@@ -31,12 +31,12 @@ resource "aws_vpc_security_group_ingress_rule" "allow_all_traffic_nfs_worker" {
 
 }
 
-resource "aws_vpc_security_group_ingress_rule" "allow_all_inbound" {
-  security_group_id = aws_security_group.k8s_nfs.id
-  cidr_ipv4         = "0.0.0.0/0"
-  #cidr_ipv6         = "::/0"
-  ip_protocol = "-1"
-}
+# resource "aws_vpc_security_group_ingress_rule" "allow_all_inbound" {
+#   security_group_id = aws_security_group.k8s_nfs.id
+#   cidr_ipv4         = "0.0.0.0/0"
+#   #cidr_ipv6         = "::/0"
+#   ip_protocol = "-1"
+# }
 
 resource "aws_vpc_security_group_egress_rule" "allow_all_traffic_nfs" {
   security_group_id = aws_security_group.k8s_nfs.id
@@ -71,14 +71,14 @@ resource "aws_vpc_security_group_ingress_rule" "Rancher_HTTPS_nginx_lb" {
   ip_protocol = "tcp"
   to_port     = 444
 }
-resource "aws_vpc_security_group_ingress_rule" "nodePort" {
-  security_group_id = aws_security_group.k8s_nginx_lb.id
-  cidr_ipv4         = "0.0.0.0/0"
-  #cidr_ipv6         = "::/0"
-  from_port   = 30000
-  ip_protocol = "tcp"
-  to_port     = 32767
-}
+# resource "aws_vpc_security_group_ingress_rule" "nodePort" {
+#   security_group_id = aws_security_group.k8s_nginx_lb.id
+#   cidr_ipv4         = "0.0.0.0/0"
+#   #cidr_ipv6         = "::/0"
+#   from_port   = 30000
+#   ip_protocol = "tcp"
+#   to_port     = 32767
+# }
 resource "aws_vpc_security_group_ingress_rule" "kube_api_6443" {
   security_group_id = aws_security_group.k8s_nginx_lb.id
   cidr_ipv4         = "0.0.0.0/0"
@@ -88,14 +88,14 @@ resource "aws_vpc_security_group_ingress_rule" "kube_api_6443" {
   to_port     = 6443
 }
 #allow 9991 of jenkins
-resource "aws_vpc_security_group_ingress_rule" "allow_jenkins" {
-  security_group_id = aws_security_group.k8s_nginx_lb.id
-  cidr_ipv4         = "0.0.0.0/0"
-  #cidr_ipv6         = "::/0"
-  from_port   = 9991
-  ip_protocol = "tcp"
-  to_port     = 9991
-}
+# resource "aws_vpc_security_group_ingress_rule" "allow_jenkins" {
+#   security_group_id = aws_security_group.k8s_nginx_lb.id
+#   cidr_ipv4         = "0.0.0.0/0"
+#   #cidr_ipv6         = "::/0"
+#   from_port   = 9991
+#   ip_protocol = "tcp"
+#   to_port     = 9991
+# }
 resource "aws_vpc_security_group_ingress_rule" "allow_http" {
   security_group_id = aws_security_group.k8s_nginx_lb.id
   cidr_ipv4         = "0.0.0.0/0"
@@ -336,23 +336,23 @@ resource "aws_vpc_security_group_ingress_rule" "SSH_worker" {
   to_port     = 22
 }
 
-resource "aws_vpc_security_group_ingress_rule" "api_server_worker" {
-  security_group_id = aws_security_group.k8s_worker.id
-  cidr_ipv4         = "0.0.0.0/0"
-  #cidr_ipv6         = "::/0"
-  from_port   = 6443
-  ip_protocol = "tcp"
-  to_port     = 6443
-}
+# resource "aws_vpc_security_group_ingress_rule" "api_server_worker" {
+#   security_group_id = aws_security_group.k8s_worker.id
+#   cidr_ipv4         = "0.0.0.0/0"
+#   #cidr_ipv6         = "::/0"
+#   from_port   = 6443
+#   ip_protocol = "tcp"
+#   to_port     = 6443
+# }
 
-resource "aws_vpc_security_group_ingress_rule" "ETCD_worker" {
-  security_group_id = aws_security_group.k8s_worker.id
-  cidr_ipv4         = "0.0.0.0/0"
-  #cidr_ipv6         = "::/0"
-  from_port   = 2379
-  ip_protocol = "tcp"
-  to_port     = 2380
-}
+# resource "aws_vpc_security_group_ingress_rule" "ETCD_worker" {
+#   security_group_id = aws_security_group.k8s_worker.id
+#   cidr_ipv4         = "0.0.0.0/0"
+#   #cidr_ipv6         = "::/0"
+#   from_port   = 2379
+#   ip_protocol = "tcp"
+#   to_port     = 2380
+# }
 
 resource "aws_vpc_security_group_ingress_rule" "weavenet_tcp_worker" {
   security_group_id = aws_security_group.k8s_worker.id
@@ -424,21 +424,21 @@ resource "aws_vpc_security_group_egress_rule" "allow_all_traffic_worker" {
 }
 
 #NFS server
-resource "aws_security_group" "nfs" {
-  name        = "nfs_sg"
-  description = "nfs sg"
-  vpc_id      = data.aws_vpc.dattran_vpc.id
+# resource "aws_security_group" "nfs" {
+#   name        = "nfs_sg"
+#   description = "nfs sg"
+#   vpc_id      = data.aws_vpc.dattran_vpc.id
 
-  tags = {
-    Name = "nfs_sg"
-  }
-}
-resource "aws_vpc_security_group_ingress_rule" "NFS_server" {
-  security_group_id = aws_security_group.nfs.id
-  cidr_ipv4         = "0.0.0.0/0"
-  #cidr_ipv6         = "::/0"
-  from_port   = 2049
-  ip_protocol = "tcp"
-  to_port     = 2049
-}
+#   tags = {
+#     Name = "nfs_sg"
+#   }
+# }
+# resource "aws_vpc_security_group_ingress_rule" "NFS_server" {
+#   security_group_id = aws_security_group.nfs.id
+#   cidr_ipv4         = "0.0.0.0/0"
+#   #cidr_ipv6         = "::/0"
+#   from_port   = 2049
+#   ip_protocol = "tcp"
+#   to_port     = 2049
+# }
 

@@ -198,7 +198,7 @@ resource "aws_instance" "k8s_master" {
     EOT
   }
   provisioner "local-exec" {
-    command = "ansible-playbook  provisionKubeConfig.yaml"
+    command = "ansible-playbook  provisionKubeConfig.yaml --limit caycuoc"
   }
   provisioner "remote-exec" {
     inline = [
@@ -331,14 +331,25 @@ resource "aws_instance" "k8s_master_2" {
 
 # Deploy Helm Charts after all cluster components (Nodes/NFS) are provisioned
 resource "null_resource" "helm_charts" {
+  # triggers = {
+  #   always_run = timestamp()
+  # }
+  # depends_on = [
+  #   # aws_instance.k8s_master,
+  #   aws_instance.k8s_master_2,
+  #   # aws_instance.k8s_worker,
+  #   # aws_instance.k8s_nfs
+  # ]
   triggers = {
-    always_run = timestamp()
+    master_id   = aws_instance.k8s_master.id
+    master_2_id = aws_instance.k8s_master_2.id
+    worker_ids  = join(",", aws_instance.k8s_worker[*].id)
   }
   depends_on = [
-    # aws_instance.k8s_master,
+    aws_instance.k8s_master,
     aws_instance.k8s_master_2,
-    # aws_instance.k8s_worker,
-    # aws_instance.k8s_nfs
+    aws_instance.k8s_worker,
+    aws_instance.k8s_nfs
   ]
   provisioner "local-exec" {
     command = <<-EOT
@@ -396,6 +407,14 @@ resource "null_resource" "helm_charts" {
       kubectl create ns isc-fe
       cd Helm/charts/isc-fe
       helm upgrade -i isc-fe . -n isc-fe
+    EOT
+  }
+
+  provisioner "local-exec" {
+    command = <<EOT
+      helm repo add kong https://charts.konghq.com
+      helm repo update
+      helm install kong kong/ingress -n kong --create-namespace
     EOT
   }
 }

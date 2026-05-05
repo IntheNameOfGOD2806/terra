@@ -1,0 +1,74 @@
+# installSSL.yaml
+---
+- name: Cài đặt SSL với Certbot cho Nginx
+  hosts: all
+  become: yes
+  vars:
+    domains:
+      - name: "rancher.tranthanhdat.org"
+        email: "tranthanhdat4321@gmail.com"
+
+  tasks:
+    - name: Cài đặt snapd
+      apt:
+        name: snapd
+        state: present
+        update_cache: yes
+
+    - name: Cài đặt certbot qua snap
+      snap:
+        name: certbot
+        classic: yes
+        state: present
+
+    - name: Symlink certbot
+      file:
+        src: /snap/bin/certbot
+        dest: /usr/bin/certbot
+        state: link
+        force: yes
+
+    - name: Stop Nginx tạm thời để certbot lấy cert
+      systemd:
+        name: nginx
+        state: stopped
+
+    - name: Chạy certbot --nginx không cần nhập tay
+      shell: |
+        certbot --nginx \
+          --non-interactive \
+          --agree-tos \
+          --email {{ item.email }} \
+          --domain {{ item.name }} \
+          --redirect
+      loop: "{{ domains }}"
+      args:
+        creates: "/etc/letsencrypt/live/{{ item.name }}/fullchain.pem"
+
+    # - name: Tạo Nginx config với SSL
+    #   template:
+    #     src: nginx_master.conf.j2
+    #     dest: "/etc/nginx/sites-enabled/{{ item.name }}.conf"
+    #   loop: "{{ domains }}"
+    #   notify: reload nginx
+
+    - name: Start Nginx
+      systemd:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Setup auto-renew cronjob
+      cron:
+        name: "certbot renew"
+        minute: "0"
+        hour: "3"
+        day: "*/7"
+        job: "certbot renew --quiet --pre-hook 'systemctl stop nginx' --post-hook
+          'systemctl start nginx'"
+
+  handlers:
+    - name: reload nginx
+      systemd:
+        name: nginx
+        state: reloaded
